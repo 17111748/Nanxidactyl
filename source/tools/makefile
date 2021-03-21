@@ -5,8 +5,12 @@
 # All directories which contain tests should be placed here.
 # Please maintain alphabetical order.
 
-ALL_TEST_DIRS :=   ManualExamples 
-                   
+ALL_TEST_DIRS :=  18742 AlignChk AttachDetach Buffer ChildProcess  Cpp11Tests CrossIa32Intel64  Debugger	 \
+                 DebugInfo DebugTrace GracefulExit I18N IArg ImageTests InlinedFuncsOpt Insmix InstLibExamples           \
+                 InstructionTests InstrumentationOrderAndVersion  LinuxTests  ManualExamples \
+                  Memory MemTrace MemTranslate Mix Mmx MyPinTool NonInlinedFuncsOpt Probes Regvalue Replay     \
+                 RtnTests SegTrace SegmentsVirtualization SignalTests SimpleExamples Smc SyncTests SyscallsEmulation     \
+                 Tests ToolUnitTests  
 
 # All directories which contain utilities for the test system should be placed here.
 # Please maintain alphabetical order.
