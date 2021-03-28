@@ -21,155 +21,172 @@ enum bus_actions {INVALIDATE, BUSRD, BUSRDOWN, SPECULATE};
 
 enum cache_actions {READ, WRITE}; 
 
-// Magic Memory Address Range index by 2
-typedef struct magic_memory {
 
-    uint64_t size; 
-    uint64_t *addresses; 
-
-} magic_memory; 
 
 // TODO: Do we want to name this entry or line? 
-typedef struct line {
+class Line {
 
-    cache_states state; //APPROXIMATE, MODIFIED, EXCLUSIVE, SHARED or INVALID
-	uint8_t tag;
-	uint8_t valid;
-	uint8_t dirty;
-    uint32_t data; 
-    
-    uint8_t lineID;
-    // TODO: Depends on how we want to break up the data
-    
-    // Extra Stuff that might be useful
-    
-} line;
+    public: 
 
-typedef struct set {
+        cache_states state; //APPROXIMATE, MODIFIED, EXCLUSIVE, SHARED or INVALID
+        uint8_t tag;
+        uint8_t valid;
+        uint8_t dirty;
+        uint32_t data; 
+        
+        uint8_t lineID;
 
-	line *lines;	
-	uint8_t num_lines;	
-    uint8_t num_lines_in_use; 
-	
-    uint8_t setID;
+        Line(cache_states state, uint8_t tag, uint8_t valid, uint8_t dirty, uint32_t data, uint8_t lineID);
+        // TODO: Depends on how we want to break up the data
+        
+        // Extra Stuff that might be useful
+};
 
-} set;
+class Set {
 
+    public: 
+        Line *lines;	
+        uint8_t num_lines;	
+        uint8_t num_lines_in_use; 
+        
+        uint8_t setID;
 
-// Statistics for us to measure and store
-typedef struct cache_stat {
-
-    uint64_t num_access;
-	uint64_t num_reads;
-	uint64_t num_writes;
-	uint64_t num_read_misses;
-	uint64_t num_write_misses;
-	uint64_t num_write_backs;
-	uint64_t num_blocks_transferred;
-
-} cache_stat; 
-
-// Cache is essentially a core 
-typedef struct cache {
-    uint64_t  cycles; // Clock for this cache/core 
-    uint32_t  level; 
-
-    cache_stat *cache_stats; 
-	set        *sets;	
-
-    uint64_t set_associativity;
-	uint64_t num_sets;
-	uint64_t num_lines_per_set;
-
-	uint64_t num_bytes; 
-	uint64_t index_length, offset_length, tag_length; // to index into the address 
-
-	uint8_t cacheID;
-
-} cache;
-
-
-typedef struct cache_system {
-
-    uint8_t  numCores; 
-	cache    *caches;
-    uint64_t *cache_cycles; // To store the local clock of each core
-
-} cache_system;
-
-
-// An Entry into the speculative buffer 
-typedef struct spec_buffer_entry {
-
-    uint64_t address; 
-    line *cache_line; 
-    uint64_t time_of_speculation;  
-
-} spec_buffer_entry; 
-
-// Speculative Buffer to keep track of all the Bus transactions
-typedef struct spec_buffer {
-
-    uint64_t size; 
-    spec_buffer_entry *spec_buffer_entries; 
-    uint8_t = full; 
-
-} spec_buffer; 
-
-// An Entry to the LLC_Buffer 
-typedef struct buffer_entry {
-
-    uint8_t cache_dest; 
-    uint64_t address; 
-    line *cache_line; 
-    bus_actions bus_action; 
-    uint8_t time_of_action; 
-
-} buffer_entry;
-
-// Handles the LLC Bus (Normal MSI Protocol)
-typedef struct llc_buffer {
-    
-    uint64_t size; 
-    buffer_entry *buffer_entries; 
-    uint8_t = full; 
+        Set(Line *lines, uint8_t num_lines, uint8_t num_lines_in_use, uint8_t setID); 
 
 }; 
 
 
-// General Cache Operations 
+// Statistics for us to measure and store
+class Cache_stat {
 
-void cache_create(uint32_t size, uint32_t assoc);
+    public: 
+        uint64_t num_access;
+        uint64_t num_reads;
+        uint64_t num_writes;
+        uint64_t num_read_misses;
+        uint64_t num_write_misses;
+        uint64_t num_write_backs;
+        uint64_t num_blocks_transferred;
 
-void address_convert(uint64_t ADDR, uint64_t *tag, uint64_t *index);
+        // Some methods to initialize and edit these 
 
-uint64_t address_rebuild(uint64_t tag, uint64_t index);
+}; 
 
-void cache_increment_cycle(uint64_t cycle); 
+// An Entry into the speculative buffer 
+class Spec_buffer_entry {
 
-// Cache Actions
+    public: 
+        uint64_t addr; 
+        Line cache_line; 
+        uint64_t time_of_speculation;  
+        Spec_buffer_entry(uint64_t addr, Line cache_line, uint64_t time_of_speculation); 
 
-uint32_t cache_read(uint64_t ADDR);
+}; 
 
-void cache_write(uint64_t ADDR, uint8_t dirty_bit);
+// Speculative Buffer to keep track of all the Bus transactions
+class Spec_buffer {
 
-uint32_t cache_evict(uint64_t index);
+    public: 
+        uint64_t size; 
+        bool = full; 
+        Spec_buffer_entry spec_buffer_entries; 
+        Spec_buffer(uint64_t size); 
 
-// Bus Actions
+        // Methods
+        void insert_entry(Spec_buffer_entry entry); 
+        Spec_buffer_entry buffer_search(uint64_t addr); 
 
-void cache_bus_actions(cache *cache, cache_states new_cache_state, bus_actions bus_action);
+} ; 
+
+// An Entry to the LLC_Buffer 
+class Buffer_entry {
+
+    uint8_t cache_dest; 
+    uint64_t addr; 
+    Line cache_line; 
+    bus_actions bus_action; 
+    uint64_t time_of_action; 
+
+    Buffer_entry(uint8_t cache_dest, uint64_t addr, Line cache_line, bus_actions bus_action, uint64_t time_of_action); 
+
+};
+
+// Handles the LLC Bus (Normal MSI Protocol)
+class MSI_buffer {
+    
+    public: 
+        uint64_t size; 
+        MSI_buffer_entry msi_buffer_entries; 
+        bool = full; 
+        MSI_buffer(uint64_t size); 
+
+        // Methods
+        void insert_entry(MSI_buffer_entry entry); 
+        MSI_buffer_entry buffer_search(uint64_t addr); 
+}; 
 
 
-// Temporary Extra 
-uint8_t cache_search(uint64_t tag, uint64_t index, uint32_t *way_num);
 
-void cache_replace(uint64_t index, uint32_t way_num, block blk);
+// Cache is essentially a core 
+class Cache {
+
+    public: 
+        uint64_t  cycles; // Clock for this cache/core 
+
+        Cache_stat cache_stats; 
+        Set        *sets;
+        Spec_buffer spec_buffer; 
+        MSI_buffer msi_buffer; 
+
+        uint64_t set_associativity;
+        uint64_t num_sets;
+        uint64_t num_bytes; 
+        uint64_t index_length, offset_length, tag_length; // to index into the address 
+
+        uint8_t cacheID;
+
+        Cache(uint64_t set_associativity, uint64_t num_sets, uint64_t num_bytes, uint8_t cacheID); 
+
+        // TODO: FIGURE OUT WHICH FUNCTIONS BELONG WHERE ... COMMUNICATION BTWN SYSTEM
+        // Actions 
+        uint32_t cache_read(uint64_t ADDR);
+        void cache_write(uint64_t ADDR, uint32_t data);
+        uint32_t cache_evict(uint64_t ADDR);
+
+        // Temporary Extra 
+        uint8_t cache_search(uint64_t tag, uint64_t index, uint32_t *way_num);
+        void cache_replace(uint64_t index, uint32_t way_num, block blk);
+
+        // Speculative Buffer
+
+        // MSI Protocol Buffer
+
+        // Speculative Execution Functions (NEED EDIT)
+        //bool speculative_compare(Cache c_original, Cache c_new, uint64_t threshold); // Compare the data and determine whether it is approximately close 
+        //void speculative_rollback(Line cache_line, uint64_t addr, uint32_t data, uint64_t cur_cycles); // Just add a certain number of cycles and replace the cache line 
+
+    private: 
+        // Methods 
+        // Basic Operations
+        void address_convert(uint64_t ADDR, uint64_t *tag, uint64_t *index);
+        uint64_t address_rebuild(uint64_t tag, uint64_t index);
+        void cache_increment_cycle(uint64_t cycle); 
+
+    
+
+};
 
 
-// Speculative Execution Functions 
-bool speculative_compare(cache *c_original, cache *c_new, uint64_t threshold); // Compare the data and determine whether it is approximately close 
 
-void speculative_rollback(cache *c_original, cache *c_new, uint64_t cur_cycles); // Just add a certain number of cycles and replace the cache line 
+
+
+
+
+
+
+
+
+
 
 
 
