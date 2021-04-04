@@ -16,6 +16,10 @@
 #define READ_TO_MEMORY_CYCLES 100
 #define WRITE_TO_MEMORY_CYCLES 100 
 
+// Buffer Sizes 
+#define SPEC_BUFFER_SIZE = 30
+#define MSI_BUFFER_SIZE = 30
+
 
 // Different Cache States for the cache coherence protocol 
 enum cache_states {INVALID, SHARED, VICTIMIZED, MODIFIED}; 
@@ -25,29 +29,26 @@ enum bus_actions {INVALIDATE, BUSRD, BUSRDOWN, SPECULATE};
 enum cache_actions {READ, WRITE}; 
 
 
-
-// TODO: Do we want to name this entry or line? 
 class Line {
 
     public: 
-
-        cache_states state; //APPROXIMATE, MODIFIED, EXCLUSIVE, SHARED or INVALID
+        cache_states state;
         uint8_t tag;
         uint8_t valid;
         uint8_t dirty;
         uint32_t data; 
-        
-        Line(cache_states state, uint8_t tag, uint8_t valid, uint8_t dirty, uint32_t data);
+        uint64_t time_inserted; // This is for LRU Replacement Policy 
+        Line(cache_states state, uint8_t tag, uint8_t valid, uint8_t dirty, uint32_t data, uint64_t time_inserted);
 
 };
 
 class Set {
 
     public: 
-        Line *lines;	
-        uint8_t num_lines;	
-
-        Set(std::vector<Line> lines, uint8_t num_lines); 
+        std::vector<Line> lines;	
+        uint64_t num_lines; 
+        uint8_t setID; 
+        Set(std::vector<Line> lines, uint64_t num_lines, uint8_t setID); 
 
 }; 
 
@@ -63,6 +64,8 @@ class Cache_stat {
         uint64_t num_write_misses;
         uint64_t num_write_backs;
         uint64_t num_blocks_transferred;
+
+        Cache_stat(); 
 
         // Some methods to initialize and edit these 
 
@@ -83,14 +86,21 @@ class Spec_buffer_entry {
 class Spec_buffer {
 
     public: 
-        uint64_t size; 
+        std::vector<Spec_buffer_entry> spec_buffer_entries; 
         bool full; 
-        Spec_buffer_entry spec_buffer_entries; 
+        uint64_t size; 
         Spec_buffer(uint64_t size); 
 
         // Methods
         void insert_entry(Spec_buffer_entry entry); 
         Spec_buffer_entry buffer_search(uint64_t addr); 
+
+        bool is_full(){
+            if(spec_buffer_entries.size() >= size){
+                return true; 
+            }
+            return false; 
+        }
 
 } ; 
 
@@ -102,7 +112,6 @@ class Buffer_entry {
     Line cache_line; 
     bus_actions bus_action; 
     uint64_t time_of_action; 
-
     Buffer_entry(uint8_t cache_dest, uint64_t addr, Line cache_line, bus_actions bus_action, uint64_t time_of_action); 
 
 };
@@ -111,14 +120,22 @@ class Buffer_entry {
 class MSI_buffer {
     
     public: 
-        uint64_t size; 
-        MSI_buffer_entry msi_buffer_entries; 
+        std::vector<MSI_buffer_entry> msi_buffer_entries; 
         bool = full; 
+        uint64_t size; 
         MSI_buffer(uint64_t size); 
 
         // Methods
         void insert_entry(MSI_buffer_entry entry); 
         MSI_buffer_entry buffer_search(uint64_t addr); 
+
+        bool is_full(){
+            if(msi_buffer_entries.size() >= size){
+                return true; 
+            }
+            return false; 
+        }
+
 }; 
 
 
@@ -136,22 +153,14 @@ class Cache {
 
         uint64_t set_associativity;
         uint64_t num_sets;
-        uint64_t num_bytes; 
-        uint64_t index_length, offset_length, tag_length; // to index into the address 
-
-        uint8_t cacheID;
 
         Cache(uint64_t set_associativity, uint64_t num_sets); 
 
 
-    private: 
         // Methods 
-        // Basic Operations
-        void address_convert(uint64_t ADDR, uint64_t *tag, uint64_t *index);
+        std::map<uint64_t, uint64_t> address_convert(uint64_t addr);
         uint64_t address_rebuild(uint64_t tag, uint64_t index);
         void cache_increment_cycle(uint64_t cycle); 
-
-    
 
 };
 

@@ -1,6 +1,7 @@
 #include "cache.h"
-#include <cstdint>
 #include <vector>
+#include <cstdint>
+#include <map>
 
 
 // Non-Memory Operations
@@ -46,14 +47,6 @@ class Magic_memory {
                 }
             }
             return false; // Address not allowed
-
-            // This might also work... can try running it in make 
-            // for (unsigned i = 0; i < addresses.size(); ++i) {
-            //     if(address >= addresses[i].a && address < addresses[i].b) {
-            //         return true; 
-            //     }
-            // }
-            // return false; 
         }
         Magic_memory(std::vector<std::pair<uint64_t, uint64_t>> addresses) {addresses = addresses;} 
 } ; 
@@ -80,32 +73,16 @@ class Cache_system {
             llc = Cache(LLC_SET_ASSOCIATIVITY, LLC_NUM_SETS);
         }
 
-        uint32_t cache_read(uint8_t coreID, uint64_t ADDR);
-        void cache_write(uint8_t coreID, uint64_t ADDR, uint32_t data);
-       
+        uint32_t cache_read(uint8_t coreID, uint64_t addr);
+        void cache_write(uint8_t coreID, uint64_t addr, uint32_t data);
+
     private: 
-        // Controller
-        void initialize_system(); 
-        void cache_bus_actions(Cache cache, cache_states new_cache_state, bus_actions bus_action);
+
+        // Speculative Execution Functions (NEED EDIT)
+        bool speculative_compare(uint32_t original_data, uint32_t new_data, uint64_t threshold); // Compare the data and determine whether it is approximately close 
+        void speculative_rollback(Line cache_line, uint64_t addr, uint32_t data, uint64_t cur_cycles); // Just add a certain number of cycles and replace the cache line 
+
+       
 };
 
 
-
-
-// // TODO: FIGURE OUT WHICH FUNCTIONS BELONG WHERE ... COMMUNICATION BTWN SYSTEM
-// // Actions 
-// uint32_t cache_read(uint64_t ADDR);
-// void cache_write(uint64_t ADDR, uint32_t data);
-// uint32_t cache_evict(uint64_t ADDR);
-
-// // Temporary Extra 
-// uint8_t cache_search(uint64_t tag, uint64_t index, uint32_t *way_num);
-// void cache_replace(uint64_t index, uint32_t way_num, block blk);
-
-// // Speculative Buffer
-
-// // MSI Protocol Buffer
-
-// // Speculative Execution Functions (NEED EDIT)
-// //bool speculative_compare(Cache c_original, Cache c_new, uint64_t threshold); // Compare the data and determine whether it is approximately close 
-// //void speculative_rollback(Line cache_line, uint64_t addr, uint32_t data, uint64_t cur_cycles); // Just add a certain number of cycles and replace the cache line 
