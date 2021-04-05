@@ -57,6 +57,7 @@ class Cache_system {
         Magic_memory magic_memory; 
         uint8_t  num_cores; 
         std::map<uint8_t, Cache>    caches;
+        std::map<uint8_t, uint64_t> cache_cycles; // To store the local clock of each core
         Cache      llc; 
 
         Cache_system(Magic_memory magic_memory, uint8_t num_cores) {
@@ -64,14 +65,23 @@ class Cache_system {
             num_cores = num_cores;
             
             caches = std::map<uint8_t, uint64_t> {};
+            cache_cycles = std::map<uint8_t, uint64_t> {};
             for (unsigned int i = 0; i < num_cores; i++) {
                 caches[i] = Cache(L1_SET_ASSOCIATIVITY, L1_NUM_SETS);
+                cache_cycles[i] = 0;
             }
             llc = Cache(LLC_SET_ASSOCIATIVITY, LLC_NUM_SETS);
         }
 
         uint32_t cache_read(uint8_t coreID, uint64_t addr);
         void cache_write(uint8_t coreID, uint64_t addr, uint32_t data);
+
+    private: 
+
+        // Speculative Execution Functions (NEED EDIT)
+        bool speculative_compare(uint32_t original_data, uint32_t new_data, uint64_t threshold); // Compare the data and determine whether it is approximately close 
+        void speculative_rollback(Line cache_line, uint64_t addr, uint32_t data, uint64_t cur_cycles); // Just add a certain number of cycles and replace the cache line 
+
        
 };
 
