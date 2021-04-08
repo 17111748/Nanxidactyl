@@ -26,9 +26,9 @@
 #define LLC_NUM_SETS 32
 
 // Different Cache States for the cache coherence protocol 
-enum cache_states {INVALID, SHARED, VICTIMIZED, MODIFIED}; 
+enum cache_states {INVALID, SHARED, MODIFIED}; 
 
-enum bus_actions {INVALIDATE, BUSRD, BUSRDOWN, SPECULATE}; 
+enum bus_actions {INVALIDATE, BUSRD, BUSRDOWN}; 
 
 enum cache_actions {READ, WRITE}; 
 
@@ -70,9 +70,11 @@ class Cache_system {
             llc = Cache(LLC_SET_ASSOCIATIVITY, LLC_NUM_SETS);
         }
 
-        uint32_t cache_read(uint8_t coreID, uint64_t addr);
+        std::pair<bool, uint32_t> cache_read(uint8_t coreID, uint64_t addr);
         void cache_write(uint8_t coreID, uint64_t addr, uint32_t data);
-       
+
+        Line access_llc(uint64_t addr); 
+        std::pair<bool, Line> lookup_line(uint64_t addr, uint8_t core_index); 
 };
 
 
