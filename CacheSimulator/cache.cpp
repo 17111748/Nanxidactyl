@@ -4,15 +4,20 @@
 #include <map>
 
 // Buffer Sizes 
-#define SPEC_BUFFER_SIZE = 30
-#define MSI_BUFFER_SIZE = 30
+#define BLOCK_SIZE = 5
+#define ADDR_SIZE = 64
+
+// L1 Cache parameters 
+#define L1_SET_ASSOCIATIVITY 8
+#define L1_NUM_SETS 32
+// LLC Cache parameters
+#define LLC_SET_ASSOCIATIVITY 8
+#define LLC_NUM_SETS 32
 
 // Constructor
-Line::Line(cache_states state, uint8_t tag, uint8_t valid, uint8_t dirty, uint32_t data, uint64_t time_accessed) {
+Line::Line(cache_states state, uint8_t tag, uint32_t data, uint64_t time_accessed) {
     state = state;
     tag = tag;
-    valid = valid;
-    dirty = dirty;
     data = data;
     time_accessed = time_accessed; 
 }
@@ -53,15 +58,18 @@ Cache::Cache(uint64_t set_associativity, uint64_t num_sets) {
 
 }
 
-
+// TODO: CHECK THESE FUNCTIONS 
 // Cache Helper Functions 
-std::map<uint64_t, uint64_t> Cache::address_convert(uint64_t addr) {
+std::pair<uint64_t, uint64_t> Cache::address_convert(uint64_t addr) {
+    uint8_t index_length = log2(num_sets); 
+    uint8_t tag_length = ADDR_SIZE - BLOCK_SIZE - index_length; 
 
+    uint64_t tag = addr >> (ADDR_SIZE - tag_length); 
+    uint64_t index = (addr << tag_length) >> (tag_length + BLOCK_SIZE); 
+
+    return std::make_pair(tag, index); 
 }
 
-uint64_t Cache::address_rebuild(uint64_t tag, uint64_t index) {
-
-}
 
 
 

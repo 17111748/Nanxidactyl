@@ -16,17 +16,17 @@
 #define READ_TO_MEMORY_CYCLES 100
 #define WRITE_TO_MEMORY_CYCLES 100 
 
-// Buffer Sizes 
-#define SPEC_BUFFER_SIZE = 30
-#define MSI_BUFFER_SIZE = 30
+// L1 Cache parameters 
+#define L1_SET_ASSOCIATIVITY 8
+#define L1_NUM_SETS 32
+// LLC Cache parameters
+#define LLC_SET_ASSOCIATIVITY 8
+#define LLC_NUM_SETS 32
 
 
 // Different Cache States for the cache coherence protocol 
 enum cache_states {INVALID, SHARED, VICTIMIZED, MODIFIED}; 
 
-enum bus_actions {INVALIDATE, BUSRD, BUSRDOWN, SPECULATE}; 
-
-enum cache_actions {READ, WRITE}; 
 
 
 class Line {
@@ -34,11 +34,9 @@ class Line {
     public: 
         cache_states state;
         uint8_t tag;
-        uint8_t valid;
-        uint8_t dirty;
         uint32_t data; 
         uint64_t time_accessed; // This is for LRU Replacement Policy 
-        Line(cache_states state, uint8_t tag, uint8_t valid, uint8_t dirty, uint32_t data, uint64_t time_inserted);
+        Line(cache_states state, uint8_t tag, uint32_t data, uint64_t time_accessed);
 
 };
 
@@ -68,8 +66,7 @@ class Cache {
 
 
         // Methods 
-        std::map<uint64_t, uint64_t> address_convert(uint64_t addr);
-        uint64_t address_rebuild(uint64_t tag, uint64_t index);
+        std::pair<uint64_t, uint64_t> address_convert(uint64_t addr);
 
 };
 
