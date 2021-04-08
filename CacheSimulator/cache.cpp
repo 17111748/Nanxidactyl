@@ -8,13 +8,13 @@
 #define MSI_BUFFER_SIZE = 30
 
 // Constructor
-Line::Line(cache_states state, uint8_t tag, uint8_t valid, uint8_t dirty, uint32_t data, uint64_t time_inserted) {
+Line::Line(cache_states state, uint8_t tag, uint8_t valid, uint8_t dirty, uint32_t data, uint64_t time_accessed) {
     state = state;
     tag = tag;
     valid = valid;
     dirty = dirty;
     data = data;
-    time_inserted = time_inserted; 
+    time_accessed = time_accessed; 
 }
 
 // Constructor

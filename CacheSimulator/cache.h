@@ -37,7 +37,7 @@ class Line {
         uint8_t valid;
         uint8_t dirty;
         uint32_t data; 
-        uint64_t time_inserted; // This is for LRU Replacement Policy 
+        uint64_t time_accessed; // This is for LRU Replacement Policy 
         Line(cache_states state, uint8_t tag, uint8_t valid, uint8_t dirty, uint32_t data, uint64_t time_inserted);
 
 };

@@ -54,12 +54,14 @@ class Magic_memory {
 // The cache system acts as the controller 
 class Cache_system {
     public: 
+        uint64_t global_time; // For the LRU policy
         Magic_memory magic_memory; 
         uint8_t  num_cores; 
         std::map<uint8_t, Cache>    caches;
         Cache      llc; 
 
         Cache_system(Magic_memory magic_memory, uint8_t num_cores) {
+            global_time = 0; 
             magic_memory = magic_memory;
             num_cores = num_cores;
             
@@ -70,11 +72,10 @@ class Cache_system {
             llc = Cache(LLC_SET_ASSOCIATIVITY, LLC_NUM_SETS);
         }
 
-        std::pair<bool, uint32_t> cache_read(uint8_t coreID, uint64_t addr);
+        std::tuple<bool, uint32_t, uint32_t> cache_read(uint8_t coreID, uint64_t addr);
         void cache_write(uint8_t coreID, uint64_t addr, uint32_t data);
 
-        Line access_llc(uint64_t addr); 
-        std::pair<bool, Line> lookup_line(uint64_t addr, uint8_t core_index); 
+        std::pair<bool, Line> lookup_line(uint64_t addr, uint8_t core_index, bool is_llc); 
 };
 
 

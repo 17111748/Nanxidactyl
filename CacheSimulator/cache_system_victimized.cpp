@@ -7,6 +7,8 @@
 
 
 Cache_system::cache_write(uint8_t coreID, uint64_t addr, uint32_t data){
+    global_time += 1; 
+
     // Check cache[coreID] for the address -- gives set <Line1, Line2, Line3, ...>
     // Compare tags -- see if address is in the set at all -- gives line <tag, valid, dirty, state> (Hit/Miss)
 
@@ -35,6 +37,7 @@ Cache_system::cache_write(uint8_t coreID, uint64_t addr, uint32_t data){
 
 // Returns (Flag whether we speculated or not, Real Data, Invalid Data) 
 Cache_system::cache_read(uint8_t coreID, uint64_t addr){
+    global_time += 1; 
     
     // Check cache[coreID] for the address -- gives set <Line1, Line2, Line3, ...
     // Compare tags -- see if address is in the set at all -- gives line <tag, valid, dirty, state> (Hit/Miss)
@@ -43,20 +46,19 @@ Cache_system::cache_read(uint8_t coreID, uint64_t addr){
     // If the address matches the L1 Cache 
     access_llc_flag = true; 
     if (line_info.first) {
+        Line line = line_info.second; 
+        line.time_accessed = global_time; 
         // If address is in the cache (M,S), Use valid data
         // Return the data 
         // Remain in the same state 
-        Line line = line_info.second; 
         if (line.state == MODIFIED || line.state == SHARED) {
             return std::make_tuple(false, line.data, 0)
         }
-        // If address is in the cache (I)
-            // (will always be allowed, only in this state if approximateble)
-            // Remain in the same state 
-            // Set flag
-            // check for the valid data in other caches 
-            // return the flag valid data, invalid data
-        if (line.state == INVALID) {
+        // If address is in the cache (V)
+            // Go to Shared state 
+            // Set Flag 
+            // Find valid data in other caches 
+        if (line.state == VICTIMIZED) {
             valid_data = 0; 
             invalid_data = line.data;
 
@@ -69,8 +71,35 @@ Cache_system::cache_read(uint8_t coreID, uint64_t addr){
                         // if in M or S state
                         if (other_line.state == MODIFIED || other_line.state == SHARED) {
                             valid_data = other_line.data;
+                            other_line.state = SHARED; 
+                        }
+                    }
+                }
+            }
+            line.state = SHARED;
+            return std::make_tuple(true, valid_data, invalid_data); 
+        }
+
+        // If address is in the cache (I)
+            // (will always be allowed, only in this state if approximateble)
+            // Remain in the same state 
+            // Set flag
+            // check for the valid data in other caches 
+            // return the flag valid data, invalid data
+        if (line.state == INVALID) {
+            valid_data = 0; 
+            invalid_data = line.data;
+            for (int core_index = 0; core_index < core_num, core_index++){
+                if (core_index != coreID){
+                    // look up helper function to find the line that tag matches
+                    std::pair<bool, Line> other_line_info = lookup_line(addr, core_index, false); 
+                    if (other_line_info.first) {
+                        Line other_line = other_line_info.second; 
+                        // if in M or S state
+                        if (other_line.state == MODIFIED || other_line.state == SHARED) {
+                            valid_data = other_line.data;
+                            other_line.state = SHARED; 
                             access_llc_flag = false; 
-                            break; 
                         }
                     }
                 }
@@ -84,15 +113,55 @@ Cache_system::cache_read(uint8_t coreID, uint64_t addr){
                 }
                 valid_data = llc_line.second.data; 
             }
-
-            return std::make_tuple(true, valid_data, invalid_data);
+            line.state = SHARED; 
+            return std::make_tuple(false, valid_data, invalid_data);
         }  
     }
     // If address is not in the cache, fetch data from llc, assume a write-through cache
         // return the valid data
         // insert fake latency -- entry into update buffer to update to S state after n cycles
     else {
+        // Find the Value in the LLC 
+        Line LLC_line; 
+        std::map<uint64_t, uint64_t> addr_info = llc.address_convert(addr); 
+        uint64_t tag = addr_info.first; 
+        uint64_t set_index = addr_info.second; 
+        Set set = llc[set_index]; 
+
+        for (int i = 0; i < set.num_lines; i++) {
+            Line line = set.lines[i]; 
+            if (line.tag == tag) {
+                LLC_line = line; 
+                break; 
+            }
+        }
+
+        // Put line into the L1 Cache 
+        addr_info = cache.address_convert(addr); 
+        tag = addr_info.first; 
+        set_index = addr_info.second; 
+        set = cache[coreID][set_index]; 
+
+        LLC_line.time_accessed = global_time; 
+        // If there isn't a capacity miss 
+        if(set.lines.size() < L1_SET_ASSOCIATIVITY) {
+            set.lines.push_back(LLC_line); 
+        }
+        // Evict a cache line and replace it with LLC Line. 
+        else {
+            int LRU_index = 0; 
+            uint64_t LRU_time = set.lines[0].time_accessed
+            for (int i = 1; i < set.num_lines; i++) {
+                Line line = set.lines[i]; 
+                if(line.time_accessed < LRU_time) {
+                    LRU_time = line.time_accessed; 
+                    LRU_index = i; 
+                }
+            }
+            set.lines.insert(LRU_index, LLC_line); 
+        }
         
+        return std::make_tuple(false, LLC_line.data , 0); 
     }
      
 
