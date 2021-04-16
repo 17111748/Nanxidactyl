@@ -2,10 +2,11 @@
 #include "vector"
 #include <cstdint>
 #include <map>
+#include <cmath>
 
 // Buffer Sizes 
-#define BLOCK_SIZE = 5
-#define ADDR_SIZE = 64
+#define BLOCK_SIZE 5
+#define ADDR_SIZE 64
 
 // L1 Cache parameters 
 #define L1_SET_ASSOCIATIVITY 8
@@ -13,6 +14,12 @@
 // LLC Cache parameters
 #define LLC_SET_ASSOCIATIVITY 8
 #define LLC_NUM_SETS 32
+
+using namespace std; 
+
+Line::Line() {
+    tag = 0; 
+}
 
 // Constructor
 Line::Line(cache_states state, uint8_t tag, uint32_t data, uint64_t time_accessed) {
@@ -22,11 +29,15 @@ Line::Line(cache_states state, uint8_t tag, uint32_t data, uint64_t time_accesse
     time_accessed = time_accessed; 
 }
 
+Set::Set() {
+    setID = 0; 
+}
+
 // Constructor
 Set::Set(std::vector<Line> lines, uint64_t num_lines, uint8_t setID) {
     lines = lines;	
     num_lines = num_lines; 
-    setID = setID: 
+    setID = setID;
 }
 
 // Constructor 
@@ -40,17 +51,20 @@ Cache_stat::Cache_stat() {
     num_blocks_transferred = 0; 
 }
 
+Cache::Cache() {
+    num_sets = 0; 
+}
 
 // Constructor
 Cache::Cache(uint64_t set_associativity, uint64_t num_sets) {
 
     cache_stats = Cache_stat(); 
-    sets = std::map<uint64_t, Set> {};// Map of index -> Set 
+    sets = map<uint64_t, Set> {};// Map of index -> Set 
     for (int setID = 0; setID < num_sets; setID++) {
-        lines = std::vector<Line>;
-        num_lines = set_associativity;
-        s = Set(lines, num_lines, setID);
-        sets.insert(std::pair<uint64_t, Set>(i, s));    
+        vector<Line> lines;
+        uint64_t num_lines = set_associativity;
+        Set s = Set(lines, num_lines, setID);
+        sets.insert(pair<uint64_t, Set>(setID, s));    
     }
 
     set_associativity = set_associativity;
@@ -71,7 +85,9 @@ std::pair<uint64_t, uint64_t> Cache::address_convert(uint64_t addr) {
 }
 
 
-
+// int main() {
+//     return 0; 
+// }
 
 
 

@@ -26,7 +26,7 @@
 #define LLC_NUM_SETS 32
 
 // Different Cache States for the cache coherence protocol 
-enum cache_states {INVALID, SHARED, VICTIMIZED, MODIFIED}; 
+// enum cache_states {INVALID, SHARED, VICTIMIZED, MODIFIED}; 
 
 
 // Magic Memory Address Range index by 2
@@ -35,17 +35,13 @@ enum cache_states {INVALID, SHARED, VICTIMIZED, MODIFIED};
 class Magic_memory {
     public: 
         // Pair of start-inclusive, end-exclusive addresses which are allowed to perform protocol
-        std::vector<std::pair<uint64_t, uint64_t>> addresses; 
-        bool check_address(uint64_t address) {
-            for (auto addr_pair = addresses.begin(); addr_pair != addresses.end(); ++addr_pair) {
-                if(address >= (*addr_pair).a && address < (*addr_pair).b) {
-                    return true;
-                }
-            }
-            return false; // Address not allowed
-        }
-        Magic_memory(std::vector<std::pair<uint64_t, uint64_t>> addresses) {addresses = addresses;} 
-} ; 
+        std::vector<std::pair<uint64_t, uint64_t>> addresses;
+
+        Magic_memory();
+        Magic_memory(std::vector<std::pair<uint64_t, uint64_t>> addresses) {addresses = addresses;}  
+
+        bool check_address(uint64_t address); 
+}; 
 
 // The cache system acts as the controller 
 class Cache_system {
@@ -53,20 +49,10 @@ class Cache_system {
         uint64_t global_time; // For the LRU policy
         Magic_memory magic_memory; 
         uint8_t  num_cores; 
-        std::map<uint8_t, Cache>    caches;
-        Cache      llc; 
+        std::map<uint8_t, Cache> caches;
+        Cache llc; 
 
-        Cache_system(Magic_memory magic_memory, uint8_t num_cores) {
-            global_time = 0; 
-            magic_memory = magic_memory;
-            num_cores = num_cores;
-            
-            caches = std::map<uint8_t, uint64_t> {};
-            for (unsigned int i = 0; i < num_cores; i++) {
-                caches[i] = Cache(L1_SET_ASSOCIATIVITY, L1_NUM_SETS);
-            }
-            llc = Cache(LLC_SET_ASSOCIATIVITY, LLC_NUM_SETS);
-        }
+        Cache_system(std::vector<std::pair<uint64_t, uint64_t>> addresses, uint8_t num_cores);
 
         std::tuple<bool, uint32_t, uint32_t> cache_read(uint8_t coreID, uint64_t addr);
         void cache_write(uint8_t coreID, uint64_t addr, uint32_t data);
