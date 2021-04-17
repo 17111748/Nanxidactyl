@@ -6,6 +6,39 @@
 
 using namespace std; 
 
+void printLine(Line l) {
+    cout << "Printing Line: " << endl; 
+    cout << "State: " << l.state << endl; 
+    cout << "Tag: " << unsigned(l.tag) << endl;
+    cout << "Data: " << l.data << endl; 
+    cout << "Time Accessed: " << l.time_accessed << "\n" << endl; 
+}
+
+void printAddressConvert(Cache c, uint64_t addr) {
+    cout << "Address Convert: " << endl; 
+    pair<uint64_t, uint64_t> info = c.address_convert(addr); 
+    cout << "Tag: " << unsigned(info.first) << endl; 
+    cout << "Index: " << info.second << "\n" << endl; 
+    
+}
+
+void printLookupLine(Cache_system cs, uint64_t addr, uint8_t coreID, bool is_llc) {
+    pair<bool, Line*> info_cache = cs.lookup_line(addr, coreID, is_llc); 
+    cout << "\nFound: " << std::boolalpha << info_cache.first << endl; 
+    if (info_cache.first) {
+        printLine(*info_cache.second); 
+    }
+    else {
+        cout << "This is not Found!" << endl; 
+    }
+}
+
+void printReadAddress(tuple<bool, uint32_t, uint32_t> t) {
+    cout << "Reading Address: " << endl; 
+    cout << "Speculated: " << boolalpha << get<0>(t) << endl; 
+    cout << "Valid Data: " << get<1>(t) << endl; 
+    cout << "Invalid Data: " << get<2>(t) << "\n" <<  endl; 
+}
 
 Magic_memory::Magic_memory() {
     addresses = vector<pair<uint64_t, uint64_t>>(); 
@@ -33,6 +66,9 @@ Cache_system::Cache_system(std::vector<std::pair<uint64_t, uint64_t>> addresses,
     magic_memory = Magic_memory(addresses); 
 
 }
+
+
+
 
 // return a flag to indicate if a line with matching address is found,
 // also return the line if the line is found 
@@ -351,6 +387,128 @@ tuple<bool, uint32_t, uint32_t> Cache_system::cache_read(uint8_t coreID, uint64_
 
 
 
+
 int main(){
+    uint8_t num_cores = 2; // Temporary 
+    std::vector<std::pair<uint64_t, uint64_t>> addresses; 
+    // We have to manually set the range of addresses  
+    addresses = vector<pair<uint64_t, uint64_t>>(); 
+
+    // Create Address Range 
+    pair<uint64_t, uint64_t> address_range0 = make_pair(0, 1000); 
+    pair<uint64_t, uint64_t> address_range1 = make_pair(100000, 500000); 
+    addresses.push_back(address_range0); 
+    addresses.push_back(address_range1);
+ 
+
+    Cache_system cache_system(addresses, num_cores);
+
+    Cache llc = cache_system.llc; 
+
+    // Initialize L1 Caches 
+    Cache c0 = cache_system.caches[0]; 
+    Cache c1 = cache_system.caches[1]; 
+
+    Set s00 = c0.sets[0]; 
+    Set s01 = c0.sets[1]; 
+    Set s10 = c1.sets[0]; 
+    Set s11 = c1.sets[1];  
+
+    // cout << "Start" << endl; 
+    // cout << cache_system.global_time << endl; 
+    // cout << unsigned(cache_system.num_cores) << endl; 
+    // cout << c0.set_associativity << endl; 
+    // cout << c0.num_sets << endl; 
+
+    // cout << s00.num_lines << endl;
+    // cout << s01.num_lines << endl;
+    // cout << s10.num_lines << endl;
+    // cout << s11.num_lines << endl;
+    
+    
+    // Test address convert 
+    uint64_t addr = 4080; // Tag = 63 Index = 1
+    uint64_t addr2 = 224; // Tag = 3 Index = 1
+    uint64_t addr3 = 480; // Tag = 7 Index = 1
+    // printAddressConvert(llc, addr); 
+
+    
+    // Cache has addr 4080... tag = 63 and index = 1; 
+    // cache_system.cache_write(0, addr, 10000); 
+    // cache_system.cache_write(0, addr, 300); 
+    // cache_system.cache_write(1, addr, 20000); 
+
+    // cache_system.caches[0].sets[1].lines.push_back(Line()); 
+    // cache_system.caches[0].sets[1].lines[0].state = SHARED; 
+    // cache_system.caches[0].sets[1].lines[0].tag = 63; 
+    // cache_system.caches[0].sets[1].lines[0].data = 10000; 
+    // cache_system.caches[0].sets[1].lines[0].time_accessed = 1; 
+
+    
+    cache_system.cache_write(0, addr, 111);
+    cache_system.cache_write(1, addr, 222);
+    printLine(cache_system.caches[0].sets[1].lines[0]);
+    printLine(cache_system.caches[1].sets[1].lines[0]);
+
+    // cache_system.cache_write(0, addr2, 222); 
+    // printLine(cache_system.caches[0].sets[1].lines[0]);
+    // printLine(cache_system.caches[0].sets[1].lines[1]);
+
+    // cache_system.cache_write(0, addr3, 333);
+    // printLine(cache_system.caches[0].sets[1].lines[0]);
+    // printLine(cache_system.caches[0].sets[1].lines[1]);
+
+    cout << "\nRead" << endl; 
+    tuple<bool, uint32_t, uint32_t> tuple1 = cache_system.cache_read(0, addr); 
+    printLine(cache_system.caches[0].sets[1].lines[0]);
+    printLine(cache_system.caches[1].sets[1].lines[0]);
+    // printLine(cache_system.caches[0].sets[1].lines[1]);
+    printReadAddress(tuple1); 
+
+    // tuple<bool, uint32_t, uint32_t> tuple11 = cache_system.cache_read(0, addr); 
+    // printLine(cache_system.caches[0].sets[1].lines[0]);
+    // printLine(cache_system.caches[1].sets[1].lines[0]);
+    // // printLine(cache_system.caches[0].sets[1].lines[1]);
+    // printReadAddress(tuple11);
+    // tuple<bool, uint32_t, uint32_t> tuple2 = cache_system.cache_read(0, addr2); 
+    // printLine(cache_system.caches[0].sets[1].lines[0]);
+    // printLine(cache_system.caches[0].sets[1].lines[1]);
+    // printReadAddress(tuple2); 
+    // tuple<bool, uint32_t, uint32_t> tuple3 = cache_system.cache_read(0, addr3); 
+    // printLine(cache_system.caches[0].sets[1].lines[0]);
+    // printLine(cache_system.caches[0].sets[1].lines[1]);
+    // printReadAddress(tuple3); 
+
+    // printLine(cache_system.caches[0].sets[1].lines[0]);
+    
+    // cout << "First Cache: " << endl; 
+    // printLookupLine(cache_system, addr, 0, false);
+    // cout << "Second Cache: " << endl; 
+    // printLookupLine(cache_system, addr2, 0, false);  
+    // cout << "Third Cache: " << endl; 
+    // printLookupLine(cache_system, addr3, 0, false);  
+
+    // LLC has addr 4000... tag = 7 and index = 15; 
+    // cache_system.update_llc(addr, 10000); 
+
+    // printLine(cache_system.llc.sets[15].lines[0]); 
+
+    // cout << "LLC: " << endl; 
+    // printLookupLine(cache_system, addr, 0, true); 
+    // printLookupLine(cache_system, addr2, 0, true); 
+    // printLookupLine(cache_system, addr3, 0, true); 
+
+     
+    
+
     return 0; 
 }
+// Line test(INVALID, 1, 1, 1); 
+// Line *l = &test; 
+// l->tag = 2; 
+// l->time_accessed = 2; 
+
+// Line temp = *l; 
+
+// printLine(temp); 
+

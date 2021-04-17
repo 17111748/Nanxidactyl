@@ -92,11 +92,6 @@ std::pair<uint64_t, uint64_t> Cache::address_convert(uint64_t addr) {
 }
 
 
-// int main() {
-//     return 0; 
-// }
-
-
 
 
 

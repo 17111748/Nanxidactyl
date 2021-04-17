@@ -57,11 +57,14 @@ class Cache_system {
 
         Cache_system(std::vector<std::pair<uint64_t, uint64_t>> addresses, uint8_t number_cores);
 
+
+        // std::pair<bool, Line> lookup_line(uint64_t addr, uint8_t coreID, bool is_llc); 
+        std::pair<bool, Line*> lookup_line(uint64_t addr, uint8_t coreID, bool is_llc); 
+        void update_llc(uint64_t addr, uint32_t data); 
+        
+        // Returns < Whether it is speculated, valid data, invalid/speculative data > 
         std::tuple<bool, uint32_t, uint32_t> cache_read(uint8_t coreID, uint64_t addr);
         void cache_write(uint8_t coreID, uint64_t addr, uint32_t data);
-
-        std::pair<bool, Line> lookup_line(uint64_t addr, uint8_t core_index, bool is_llc); 
-        void update_llc(uint64_t addr, uint32_t data); 
 };
 
 
