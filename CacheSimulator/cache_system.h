@@ -18,15 +18,18 @@
 #define READ_TO_MEMORY_CYCLES 100
 #define WRITE_TO_MEMORY_CYCLES 100 
 
-// L1 Cache parameters 
-#define L1_SET_ASSOCIATIVITY 8
-#define L1_NUM_SETS 32
-// LLC Cache parameters
-#define LLC_SET_ASSOCIATIVITY 8
-#define LLC_NUM_SETS 32
+// // L1 Cache parameters 
+// #define L1_SET_ASSOCIATIVITY 8
+// #define L1_NUM_SETS 32
+// // LLC Cache parameters
+// #define LLC_SET_ASSOCIATIVITY 8
+// #define LLC_NUM_SETS 32
 
-// Different Cache States for the cache coherence protocol 
-// enum cache_states {INVALID, SHARED, VICTIMIZED, MODIFIED}; 
+#define L1_SET_ASSOCIATIVITY 2
+#define L1_NUM_SETS 2
+
+#define LLC_SET_ASSOCIATIVITY 2
+#define LLC_NUM_SETS 16
 
 
 // Magic Memory Address Range index by 2
@@ -38,7 +41,7 @@ class Magic_memory {
         std::vector<std::pair<uint64_t, uint64_t>> addresses;
 
         Magic_memory();
-        Magic_memory(std::vector<std::pair<uint64_t, uint64_t>> addresses) {addresses = addresses;}  
+        Magic_memory(std::vector<std::pair<uint64_t, uint64_t>> addresses_param) {addresses = addresses_param;}  
 
         bool check_address(uint64_t address); 
 }; 
@@ -47,12 +50,12 @@ class Magic_memory {
 class Cache_system {
     public: 
         uint64_t global_time; // For the LRU policy
-        Magic_memory magic_memory; 
         uint8_t  num_cores; 
+        Magic_memory magic_memory; 
         std::map<uint8_t, Cache> caches;
         Cache llc; 
 
-        Cache_system(std::vector<std::pair<uint64_t, uint64_t>> addresses, uint8_t num_cores);
+        Cache_system(std::vector<std::pair<uint64_t, uint64_t>> addresses, uint8_t number_cores);
 
         std::tuple<bool, uint32_t, uint32_t> cache_read(uint8_t coreID, uint64_t addr);
         void cache_write(uint8_t coreID, uint64_t addr, uint32_t data);

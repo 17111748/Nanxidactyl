@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <map>
 #include <cmath>
+#include <iostream>
+
 
 // Buffer Sizes 
 #define BLOCK_SIZE 5
@@ -18,15 +20,18 @@
 using namespace std; 
 
 Line::Line() {
-    tag = 0; 
+    state = INVALID; 
+    tag = 0;
+    data = 0; 
+    time_accessed = 0;  
 }
 
 // Constructor
-Line::Line(cache_states state, uint8_t tag, uint32_t data, uint64_t time_accessed) {
-    state = state;
-    tag = tag;
-    data = data;
-    time_accessed = time_accessed; 
+Line::Line(cache_states state_param, uint64_t tag_param, uint32_t data_param, uint64_t time_accessed_param) {
+    state = state_param;
+    tag = tag_param;
+    data = data_param;
+    time_accessed = time_accessed_param; 
 }
 
 Set::Set() {
@@ -34,10 +39,10 @@ Set::Set() {
 }
 
 // Constructor
-Set::Set(std::vector<Line> lines, uint64_t num_lines, uint8_t setID) {
-    lines = lines;	
-    num_lines = num_lines; 
-    setID = setID;
+Set::Set(std::vector<Line> lines_param, uint64_t num_lines_param, uint8_t setID_param) {
+    lines = lines_param;	
+    num_lines = num_lines_param; 
+    setID = setID_param;
 }
 
 // Constructor 
@@ -56,19 +61,21 @@ Cache::Cache() {
 }
 
 // Constructor
-Cache::Cache(uint64_t set_associativity, uint64_t num_sets) {
+Cache::Cache(uint64_t set_associativity_param, uint64_t num_sets_param) {
 
     cache_stats = Cache_stat(); 
     sets = map<uint64_t, Set> {};// Map of index -> Set 
-    for (int setID = 0; setID < num_sets; setID++) {
+    for (uint64_t setID = 0; setID < num_sets_param; setID++) {
+        // vector<Line> lines(set_associativity_param, Line());
         vector<Line> lines;
-        uint64_t num_lines = set_associativity;
+        uint64_t num_lines = set_associativity_param;
         Set s = Set(lines, num_lines, setID);
         sets.insert(pair<uint64_t, Set>(setID, s));    
     }
 
-    set_associativity = set_associativity;
-    num_sets = num_sets; 
+    // std::cout << "in cache " << unsigned(set_associativity) << endl; 
+    set_associativity = set_associativity_param;
+    num_sets = num_sets_param; 
 
 }
 

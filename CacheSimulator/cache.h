@@ -2,26 +2,19 @@
 #include <cstdint>
 #include <map>
 
-// Non-Memory Operations
-#define ADD_CYCLES 1
-#define MULTIPLY_CYCLES 2
-#define DIVIDE_CYCLES 3
+// // Non-Memory Operations
+// #define ADD_CYCLES 1
+// #define MULTIPLY_CYCLES 2
+// #define DIVIDE_CYCLES 3
 
 
-// Memory Operations
-#define READ_HIT_CYCLES 1
-#define READ_MISS_CYCLES 2
-#define WRITE_HIT_CYCLES 1
-#define WRITE_MISS_CYCLES 2
-#define READ_TO_MEMORY_CYCLES 100
-#define WRITE_TO_MEMORY_CYCLES 100 
-
-// L1 Cache parameters 
-#define L1_SET_ASSOCIATIVITY 8
-#define L1_NUM_SETS 32
-// LLC Cache parameters
-#define LLC_SET_ASSOCIATIVITY 8
-#define LLC_NUM_SETS 32
+// // Memory Operations
+// #define READ_HIT_CYCLES 1
+// #define READ_MISS_CYCLES 2
+// #define WRITE_HIT_CYCLES 1
+// #define WRITE_MISS_CYCLES 2
+// #define READ_TO_MEMORY_CYCLES 100
+// #define WRITE_TO_MEMORY_CYCLES 100
 
 
 // Different Cache States for the cache coherence protocol 
@@ -33,11 +26,11 @@ class Line {
 
     public: 
         cache_states state;
-        uint8_t tag;
+        uint64_t tag;
         uint32_t data; 
         uint64_t time_accessed; // This is for LRU Replacement Policy 
         Line(); 
-        Line(cache_states state, uint8_t tag, uint32_t data, uint64_t time_accessed);
+        Line(cache_states state, uint64_t tag, uint32_t data, uint64_t time_accessed);
 
 };
 
@@ -80,7 +73,7 @@ class Cache {
         Cache(uint64_t set_associativity, uint64_t num_sets); 
 
 
-        // Methods 
+        // Methods: < Tag, Index > 
         std::pair<uint64_t, uint64_t> address_convert(uint64_t addr);
 
 };

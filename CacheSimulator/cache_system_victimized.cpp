@@ -6,6 +6,23 @@
 
 using namespace std; 
 
+void printLine(Line l) {
+    cout << "Printing Line: " << endl; 
+    cout << "State: " << l.state << endl; 
+    cout << "Tag: " << unsigned(l.tag) << endl;
+    cout << "Data: " << l.data << endl; 
+    cout << "Time Accessed: " << l.time_accessed << "\n" << endl; 
+}
+
+void printAddressConvert(Cache c, uint64_t addr) {
+    cout << "Address Convert: " << endl; 
+    pair<uint64_t, uint64_t> info = c.address_convert(addr); 
+    cout << "Tag: " << unsigned(info.first) << endl; 
+    cout << "Index: " << info.second << "\n" << endl; 
+    
+}
+
+
 Magic_memory::Magic_memory() {
     addresses = vector<pair<uint64_t, uint64_t>>(); 
 }
@@ -20,9 +37,9 @@ bool Magic_memory::check_address(uint64_t address) {
 }
 
 
-Cache_system::Cache_system(std::vector<std::pair<uint64_t, uint64_t>> addresses, uint8_t num_cores) {
+Cache_system::Cache_system(std::vector<std::pair<uint64_t, uint64_t>> addresses, uint8_t num_cores_param) {
     global_time = 0; 
-    num_cores = num_cores;
+    num_cores = num_cores_param;
 
     for (uint8_t i = 0; i < num_cores; i++) {
         caches[i] = Cache(L1_SET_ASSOCIATIVITY, L1_NUM_SETS);
@@ -30,6 +47,7 @@ Cache_system::Cache_system(std::vector<std::pair<uint64_t, uint64_t>> addresses,
     llc = Cache(LLC_SET_ASSOCIATIVITY, LLC_NUM_SETS);
 
     magic_memory = Magic_memory(addresses); 
+
 }
 
 
@@ -49,6 +67,7 @@ pair<bool, Line> Cache_system::lookup_line(uint64_t addr, uint8_t coreID, bool i
     uint64_t tag = addr_info.first; 
     uint64_t set_index = addr_info.second; 
 
+
     Set set = cache.sets[set_index]; 
     for (uint64_t i = 0; i < set.lines.size(); i++) {
         Line line = set.lines[i]; 
@@ -56,6 +75,7 @@ pair<bool, Line> Cache_system::lookup_line(uint64_t addr, uint8_t coreID, bool i
             return std::make_pair(true, line); 
         }
     }
+
     return std::make_pair(false, Line()); 
 }
 
@@ -74,9 +94,10 @@ void Cache_system::update_llc(uint64_t addr, uint32_t data) {
             return; 
         }
     }
+
     // If no match found in the LLC then create a new line and insert
-    Line LLC_line(INVALID, tag, data, global_time); 
-    set.lines.push_back(LLC_line); 
+    Line LLC_line(MODIFIED, tag, data, global_time); 
+    llc.sets[set_index].lines.push_back(LLC_line); 
 }
 
 
@@ -88,6 +109,7 @@ void Cache_system::cache_write(uint8_t coreID, uint64_t addr, uint32_t data){
     // Check cache[coreID] for the address -- gives set <Line1, Line2, Line3, ...>
     // Compare tags -- see if address is in the set at all -- gives line <tag, valid, dirty, state> (Hit/Miss)
     std::pair<bool, Line> line_info = lookup_line(addr, coreID, false); 
+    // cout << boolalpha << line_info.first << endl; 
 
     if (line_info.first) {
         Line line = line_info.second; 
@@ -312,13 +334,12 @@ tuple<bool, uint32_t, uint32_t> Cache_system::cache_read(uint8_t coreID, uint64_
 }
 
 
-int main(){
-    // uint8_t num_cores = 4; // Temporary 
-    // std::vector<std::pair<uint64_t, uint64_t>> addresses; 
-    // // We have to manually set the range of addresses  
 
-    // Magic_memory magic_memory = new Magic_memory(addresses); 
-    // Cache_system cache_system(magic_memory, num_cores);
+
+int main(){
+
+    
+
 
     return 0; 
 }
