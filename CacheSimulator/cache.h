@@ -49,12 +49,12 @@ class Cache_stat {
 
     public: 
         uint64_t num_access; 
-        uint64_t num_reads; 
-        uint64_t num_writes; 
+        uint64_t num_reads_hits; 
+        uint64_t num_writes_hits; 
         uint64_t num_read_misses; 
-        uint64_t num_write_misses; 
-        uint64_t num_write_backs; 
-        uint64_t num_blocks_transferred; 
+        uint64_t num_write_misses;
+        uint64_t num_read_from_llc; // read: line not in cache or no M/S version in other caches
+        uint64_t num_write_to_llc; 
         Cache_stat(); 
 };
 

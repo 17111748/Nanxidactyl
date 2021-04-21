@@ -46,21 +46,39 @@ class Magic_memory {
         bool check_address(uint64_t address); 
 }; 
 
+class System_stats {
+    public: 
+        uint64_t rollback; 
+        uint64_t success; 
+        uint64_t success_addr_bound; // success_addr_bound ~= success + rollback
+        uint64_t failed_addr_bound;
+
+        uint64_t speculate_cases; // speculate_case = success_addr_bound + fail_address_bound
+        uint64_t total_cases; 
+
+        uint64_t bus_transactions; 
+        System_stats(); 
+};
+
 // The cache system acts as the controller 
 class Cache_system {
     public: 
         uint64_t global_time; // For the LRU policy
         uint8_t  num_cores; 
+        float speculation_percent; 
+        float margin_of_error; 
         Magic_memory magic_memory; 
         std::map<uint8_t, Cache> caches;
         Cache llc; 
+        System_stats stats; 
 
-        Cache_system(std::vector<std::pair<uint64_t, uint64_t>> addresses, uint8_t number_cores);
-
+        Cache_system(std::vector<std::pair<uint64_t, uint64_t>> addresses, uint8_t number_cores, 
+                                                    double speculation_percent, double margin_of_error);
 
         // std::pair<bool, Line> lookup_line(uint64_t addr, uint8_t coreID, bool is_llc); 
         std::pair<bool, Line*> lookup_line(uint64_t addr, uint8_t coreID, bool is_llc); 
         void update_llc(uint64_t addr, uint32_t data); 
+        bool within_threshold(uint32_t valid, uint32_t invalid); 
         
         // Returns < Whether it is speculated, valid data, invalid/speculative data > 
         std::tuple<bool, uint32_t, uint32_t> cache_read(uint8_t coreID, uint64_t addr);
