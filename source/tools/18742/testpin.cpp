@@ -23,7 +23,8 @@ using std::endl;
 
 ofstream OutFile;
 
-unsigned long buf_addr_global;
+// Address of memory locations that we can speculate on
+std::map<std::string, unsigned long> images; 
 
 // The running count of instructions is kept here
 // make it static to help the compiler optimize docount
@@ -120,8 +121,9 @@ INT32 Usage()
     return -1;
 }
 
-void Image(IMG img, VOID *v) {
-    RTN addressRtn = RTN_FindByName(img, "address");
+void fillImage(IMG img, std::string s) {
+    // RTN addressRtn = RTN_FindByName(img, s.c_str());
+    RTN addressRtn = RTN_FindByName(img, "matrix_addr_A");
 
     if (addressRtn.is_valid()) {
         
@@ -131,12 +133,76 @@ void Image(IMG img, VOID *v) {
 
         unsigned long a = ((unsigned long (*) (void)) app)();
         // std::cout << a << std::endl;
+        images[s] = a;
         printf("%lx\n", a);
         RTN_Close(addressRtn);
 
     } else {
         std::cout << "Address RTN not found" << std::endl;
     }
+}
+
+void Image(IMG img, VOID *v) {
+
+    for( SYM sym= IMG_RegsymHead(img); SYM_Valid(sym); sym = SYM_Next(sym) ) {
+        // printf("SYMBOL %s\n", PIN_UndecorateSymbolName(SYM_Name(sym), UNDECORATION_NAME_ONLY).c_str());
+        if (PIN_UndecorateSymbolName(SYM_Name(sym), UNDECORATION_NAME_ONLY) == "matrix_addr_A") {
+            printf("FOUND!\n");
+            unsigned long addr = SYM_Address(sym);
+            printf("%lx\n", addr);
+            unsigned long a = ((unsigned long (*) (void)) addr)();
+            printf("%lx\n", a);
+
+            RTN addressRtn = RTN_FindByName(img, SYM_Name(sym).c_str());
+
+            if (addressRtn.is_valid()) {
+                
+                std::cout << "Address RTN found" << std::endl;
+                RTN_Open(addressRtn);
+                AFUNPTR app = RTN_Funptr(addressRtn);
+
+                unsigned long a = ((unsigned long (*) (void)) app)();
+                // std::cout << a << std::endl;
+                // images[s] = a;
+                printf("%lx\n", a);
+                RTN_Close(addressRtn);
+
+            } else {
+                std::cout << "Address RTN not found" << std::endl;
+            }
+
+        }
+    }
+
+    // unsigned long buf_addr;
+    // FILE *f;
+    // f = fopen("testing.address", "r");
+    // // buf_addr = 
+    // fscanf(f, "%lx\n", &buf_addr);
+    // fclose(f);
+    // std::string name = RTN_FindNameByAddress(buf_addr);
+    // printf("Name %s\n", name.c_str());
+    
+    // RTN addressRtn = RTN_FindByName(img, "Address");
+
+    // if (addressRtn.is_valid()) {
+        
+    //     std::cout << "Address RTN found" << std::endl;
+    //     RTN_Open(addressRtn);
+    //     AFUNPTR app = RTN_Funptr(addressRtn);
+
+    //     unsigned long a = ((unsigned long (*) (void)) app)();
+    //     // std::cout << a << std::endl;
+    //     printf("%lx\n", a);
+    //     RTN_Close(addressRtn);
+
+    // } else {
+    //     std::cout << "Address RTN not found" << std::endl;
+    // }
+    // fillImage(img, "matrix_addr_A");
+    // fillImage(img, "matrix_addr_B");
+    // fillImage(img, "matrix_addr_CWT");
+    // fillImage(img, "matrix_addr_CWOT");
 }
 
 /* ===================================================================== */
@@ -163,6 +229,12 @@ int main(int argc, char * argv[])
     trace = fopen("pinatrace.out", "w");
     
     PIN_InitSymbols();
+    // for( IMG img= APP_ImgHead(); IMG_Valid(img); img = IMG_Next(img) ) {
+    //     printf("HELLO");
+    //     Image(img, NULL);
+    // } 
+
+    // Catches the loading of an IMAGE
     IMG_AddInstrumentFunction(Image, NULL);
 
     OutFile.open(KnobOutputFile.Value().c_str());

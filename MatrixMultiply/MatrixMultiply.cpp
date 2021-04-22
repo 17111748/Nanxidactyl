@@ -8,6 +8,28 @@
 #include <chrono>
 #include <thread>
 
+Matrix::matrix matrixA;
+Matrix::matrix matrixB;
+Matrix::matrix matrixCWT;
+Matrix::matrix matrixCWOT;
+
+// Returns the start address of the matrix memory location
+unsigned long matrix_addr_A() {
+    return (unsigned long) matrixA.matrix;
+}
+
+unsigned long matrix_addr_B() {
+    return (unsigned long) matrixB.matrix;
+}
+
+unsigned long matrix_addr_CWT() {
+    return (unsigned long) matrixCWT.matrix;
+}
+
+unsigned long matrix_addr_CWOT() {
+    return (unsigned long) matrixCWOT.matrix;
+}
+
 using namespace std::chrono;
 
 void matrixmult(Matrix::matrix* Cptr, Matrix::matrix* Aptr, Matrix::matrix* Bptr,int upperbound,int lowerbound = 0) {
@@ -55,19 +77,28 @@ int main()
     std::cout << "Matrix multiplication\n";
     /*time_t startWOT, stopWOT, startWT, stopWT;*/
 
-    Matrix::matrix matrixA;
-    Matrix::matrix matrixB;
-    Matrix::matrix matrixCWT;
-    Matrix::matrix matrixCWOT;
+    matrixA.createRandomMatrix();
+    matrixB.createRandomMatrix();
+    matrixCWT.createEmptyMatrix();
+    matrixCWOT.createEmptyMatrix();
+
 	Matrix::matrix *matrixCWOTPtr = &matrixCWOT; //Pointer verweist auf den Speicher einer anderen Variable
     Matrix::matrix *matrixAPtr = &matrixA;
     Matrix::matrix *matrixBPtr = &matrixB;
     Matrix::matrix* matrixCWTPtr = &matrixCWT;
 
-    matrixA.createRandomMatrix();
-    matrixB.createRandomMatrix();
-    matrixCWT.createEmptyMatrix();
-    matrixCWOT.createEmptyMatrix();
+    // Only start pin trace after setting up problem space
+
+    printf("Address of A: %lx\n", (unsigned long) matrixA.matrix);
+    printf("Address of B: %lx\n", (unsigned long) matrixB.matrix);
+    printf("Address of C: %lx\n", (unsigned long) matrixCWT.matrix);
+
+        FILE *f;
+    f = fopen("testing.address", "w");
+    fprintf(f, "%lx", (unsigned long) &matrix_addr_A); // Write the address into file
+    printf("FUN ADDR %lx\n", (unsigned long) matrix_addr_A); // Write the address into file
+    printf("FUN ADDR %lx\n", matrix_addr_A()); // Write the address into file
+    fclose(f);
 
     // std::cout << "\n[+] Single Core calculation started. \n[*] Calculating...";
     // auto startWOT = high_resolution_clock::now();
@@ -82,7 +113,7 @@ int main()
     auto stopWT = high_resolution_clock::now();
     std::cout << "\n[+] Multithreaded calculation finished \n[+] Duration: " << duration<double>(stopWT - startWT).count() << " seconds";
 
-    std::cout << "\n" << endl; 
+    std::cout << "\n" << std::endl; 
     matrixA.print();
     matrixB.print();
     matrixCWT.print();
