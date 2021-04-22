@@ -48,12 +48,12 @@ Set::Set(std::vector<Line> lines_param, uint64_t num_lines_param, uint8_t setID_
 // Constructor 
 Cache_stat::Cache_stat() {
     num_access = 0; 
-    num_reads = 0; 
-    num_writes = 0; 
+    num_reads_hits = 0; 
+    num_writes_hits = 0; 
     num_read_misses = 0; 
-    num_write_misses = 0; 
-    num_write_backs = 0; 
-    num_blocks_transferred = 0; 
+    num_write_misses = 0;
+    num_read_from_llc = 0; // read: line not in cache or no M/S version in other caches
+    num_write_to_llc = 0;
 }
 
 Cache::Cache() {
