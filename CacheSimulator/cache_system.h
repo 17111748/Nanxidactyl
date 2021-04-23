@@ -38,10 +38,10 @@
 class Magic_memory {
     public: 
         // Pair of start-inclusive, end-exclusive addresses which are allowed to perform protocol
-        std::vector<std::pair<uint64_t, uint64_t>> addresses;
+        std::vector<std::vector<uint64_t>> addresses;
 
         Magic_memory();
-        Magic_memory(std::vector<std::pair<uint64_t, uint64_t>> addresses_param) {addresses = addresses_param;}  
+        Magic_memory(std::vector<std::vector<uint64_t>> addresses_param) {addresses = addresses_param;}  
 
         bool check_address(uint64_t address); 
 }; 
@@ -60,6 +60,23 @@ class System_stats {
         System_stats(); 
 };
 
+
+class Line_result {
+    public: 
+        bool found; 
+        Line *line_ptr; 
+        Line_result(); 
+};
+
+
+class Read_tuple {
+    public: 
+        bool speculated; 
+        uint32_t valid_data; 
+        uint32_t invalid_data; 
+        Read_tuple(); 
+};
+
 // The cache system acts as the controller 
 class Cache_system {
     public: 
@@ -72,16 +89,17 @@ class Cache_system {
         Cache llc; 
         System_stats stats; 
 
-        Cache_system(std::vector<std::pair<uint64_t, uint64_t>> addresses, uint8_t number_cores, 
+        Cache_system(std::vector<std::vector<uint64_t>> addresses, uint8_t number_cores, 
                                                     double speculation_percent, double margin_of_error);
 
-        // std::pair<bool, Line> lookup_line(uint64_t addr, uint8_t coreID, bool is_llc); 
-        std::pair<bool, Line*> lookup_line(uint64_t addr, uint8_t coreID, bool is_llc); 
+        // std::pair<bool, Line*> lookup_line(uint64_t addr, uint8_t coreID, bool is_llc); 
+        Line_result lookup_line(uint64_t addr, uint8_t coreID, bool is_llc); 
         void update_llc(uint64_t addr, uint32_t data); 
         bool within_threshold(uint32_t valid, uint32_t invalid); 
         
         // Returns < Whether it is speculated, valid data, invalid/speculative data > 
-        std::tuple<bool, uint32_t, uint32_t> cache_read(uint8_t coreID, uint64_t addr);
+        // std::tuple<bool, uint32_t, uint32_t> cache_read(uint8_t coreID, uint64_t addr);
+        Read_tuple cache_read(uint8_t coreID, uint64_t addr);
         void cache_write(uint8_t coreID, uint64_t addr, uint32_t data);
 };
 

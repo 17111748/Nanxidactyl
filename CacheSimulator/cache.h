@@ -74,7 +74,7 @@ class Cache {
 
 
         // Methods: < Tag, Index > 
-        std::pair<uint64_t, uint64_t> address_convert(uint64_t addr);
+        std::vector<uint64_t> address_convert(uint64_t addr);
 
 };
 
