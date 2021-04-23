@@ -1,5 +1,8 @@
 #include "cache.h"
-#include "llc.h"
+#include <vector>
+#include <cstdint>
+#include <map>
+
 
 // Non-Memory Operations
 #define ADD_CYCLES 1
@@ -15,45 +18,113 @@
 #define READ_TO_MEMORY_CYCLES 100
 #define WRITE_TO_MEMORY_CYCLES 100 
 
+// // L1 Cache parameters 
+// #define L1_SET_ASSOCIATIVITY 8
+// #define L1_NUM_SETS 32
+// // LLC Cache parameters
+// #define LLC_SET_ASSOCIATIVITY 8
+// #define LLC_NUM_SETS 32
 
-// Different Cache States for the cache coherence protocol 
-enum cache_states {INVALID, SHARED, VICTIMIZED, MODIFIED}; 
+#define L1_SET_ASSOCIATIVITY 2
+#define L1_NUM_SETS 2
 
-enum bus_actions {INVALIDATE, BUSRD, BUSRDOWN, SPECULATE}; 
-
-enum cache_actions {READ, WRITE}; 
+#define LLC_SET_ASSOCIATIVITY 2
+#define LLC_NUM_SETS 16
 
 
 // Magic Memory Address Range index by 2
+// Allowed Addresses to perform Victimized Protocol
+// Address booking: keeps track of the address ranges that can tolerate approximation
 class Magic_memory {
-
     public: 
-        uint64_t size; 
-        uint64_t *addresses; 
-        Magic_memory(uint64_t *addresses); 
+        // Pair of start-inclusive, end-exclusive addresses which are allowed to perform protocol
+        std::vector<std::vector<uint64_t>> addresses;
 
-} ; 
+        Magic_memory() {
+            this->addresses = std::vector<std::vector<uint64_t>>(); 
+        };
+        Magic_memory(std::vector<std::vector<uint64_t>> addresses_param) {addresses = addresses_param;}  
+
+        bool check_address(uint64_t address); 
+}; 
+
+class System_stats {
+    public: 
+        uint64_t rollback; 
+        uint64_t success; 
+        uint64_t success_addr_bound; // success_addr_bound ~= success + rollback
+        uint64_t failed_addr_bound;
+
+        uint64_t speculate_cases; // speculate_case = success_addr_bound + fail_address_bound
+        uint64_t total_cases; 
+
+        uint64_t bus_transactions; 
+        System_stats() {
+            this->rollback = 0; 
+            this->success = 0; 
+            this->success_addr_bound = 0; 
+            this->failed_addr_bound = 0;
+            this->speculate_cases = 0; 
+            this->total_cases = 0; 
+            this->bus_transactions = 0; 
+        };
+};
+
+
+class Line_result {
+    public: 
+        bool found; 
+        Line *line_ptr; 
+        Line_result(); 
+};
+
+
+class Read_tuple {
+    public: 
+        bool speculated; 
+        uint32_t valid_data; 
+        uint32_t invalid_data; 
+        Read_tuple(); 
+};
 
 // The cache system acts as the controller 
 class Cache_system {
-
     public: 
-        Magic_memory magic_memory; 
+        uint64_t global_time; // For the LRU policy
         uint8_t  num_cores; 
-        Cache    *caches;
-        LLC      llc; 
-        uint64_t *cache_cycles; // To store the local clock of each core
-        Cache_system(Magic_memory magic_memory, uint8_t num_cores, Cache *caches, LLC llc); 
+        float speculation_percent; 
+        float margin_of_error; 
+        Magic_memory magic_memory; 
+        std::map<uint8_t, Cache> caches;
+        Cache llc; 
+        System_stats stats; 
 
-        void start_simulation(); 
+        Cache_system(std::vector<std::vector<uint64_t>> addresses, uint8_t number_cores, 
+                                                    double speculation_percent, double margin_of_error) {
+                                                            global_time = 0; 
+            this->num_cores = num_cores;
+            this->speculation_percent = speculation_percent; 
+            this->margin_of_error = margin_of_error; 
+
+            for (uint8_t i = 0; i < num_cores; i++) {
+                this->caches[i] = Cache(L1_SET_ASSOCIATIVITY, L1_NUM_SETS);
+            }
+
+            this->llc = Cache(LLC_SET_ASSOCIATIVITY, LLC_NUM_SETS);
+
+            this->magic_memory = Magic_memory(addresses); 
+            this->stats = System_stats(); 
+        };
+
+        // std::pair<bool, Line*> lookup_line(uint64_t addr, uint8_t coreID, bool is_llc); 
+        Line_result lookup_line(uint64_t addr, uint8_t coreID, bool is_llc); 
+        void update_llc(uint64_t addr, uint32_t data); 
+        bool within_threshold(uint32_t valid, uint32_t invalid); 
         
-
-       
-    private: 
-        // Controller
-        void initialize_system(); 
-        bool approximatable_address(uint64_t ADDR); // Checks magic memory 
-        void cache_bus_actions(Cache cache, cache_states new_cache_state, bus_actions bus_action);
-
-
+        // Returns < Whether it is speculated, valid data, invalid/speculative data > 
+        // std::tuple<bool, uint32_t, uint32_t> cache_read(uint8_t coreID, uint64_t addr);
+        Read_tuple cache_read(uint8_t coreID, uint64_t addr);
+        void cache_write(uint8_t coreID, uint64_t addr, uint32_t data);
 };
+
+

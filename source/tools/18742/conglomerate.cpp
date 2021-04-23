@@ -11,15 +11,20 @@
 
 #include <iostream>
 #include <fstream>
-#include "pin.H"
 
 #include <dlfcn.h>
 #include <vector>
 #include <map>
+
+#include "pin.H"
 // #include <tuple>
 
-#include "cache_system.h"
-// #include "sample.cpp"
+// #include "cache_system.h"
+#include "sample.cpp"
+
+
+// #include <vector>
+
 
 using std::cerr;
 using std::ofstream;
@@ -47,7 +52,7 @@ std::map<std::string, unsigned long> funcMap;
 pin_data_t pin_data;
 
 // Cache system to track reads
-Cache_system* cache = NULL;
+// Cache_system cache = NULL;
 
 // The running count of instructions is kept here
 // make it static to help the compiler optimize docount
@@ -175,12 +180,12 @@ void ThreadStart(THREADID threadId, CONTEXT *ctxt, INT32 flags, VOID *v)
         pin_data = (pin_data_t) ((pin_data_t (*) (void)) funcMap["ret_pin_data"])();
     
         // Create cache system
-        std::vector<std::vector<uint64_t>> addresses;
-        addresses.push_back(std::vector<uint64_t>{(uint64_t) pin_data.addr_A, (uint64_t) pin_data.addr_A + pin_data.A_length * sizeof(float)});
+        std::vector<std::pair<uint64_t, uint64_t>> addresses;
+        // addresses.push_back(std::make_pair((uint64_t) pin_data.addr_A, (uint64_t) pin_data.addr_A + pin_data.A_length * sizeof(float)));
         // addresses.push_back(std::make_pair((uint64_t) pin_data.addr_B, (uint64_t) pin_data.addr_B + pin_data.B_length * sizeof(float)));
         // addresses.push_back(std::make_pair((uint64_t) pin_data.addr_CWT, (uint64_t) pin_data.addr_CWT + pin_data.CWT_length * sizeof(float)));
         // addresses.push_back(std::make_pair((uint64_t) pin_data.addr_CWOT, (uint64_t) pin_data.addr_CWOT + pin_data.CWOT_length * sizeof(float)));
-        *cache = Cache_system(addresses, pin_data.num_cores, 0.1, 5);
+        // cache = Cache_system(addresses, pin_data.num_cores, 0.1, 5);
     }
 }
 /* ===================================================================== */
@@ -189,14 +194,15 @@ void ThreadStart(THREADID threadId, CONTEXT *ctxt, INT32 flags, VOID *v)
 /*   argc, argv are the entire command line: pin -t <toolname> -- ...    */
 /* ===================================================================== */
 
+
 int main(int argc, char * argv[])
 {
     std::vector<int> s;
     s.push_back(1);
 
     std::map<int, int> m;
-    // Sample k = Sample();
-    // printf("%i\n", k.ret(s));
+    Sample k = Sample();
+    printf("%i\n", k.ret(s));
     
     // std::tuple<int, int> k;
 
