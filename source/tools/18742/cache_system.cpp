@@ -6,21 +6,6 @@
 
 using namespace std; 
 
-Line_result::Line_result() {
-    found = false; 
-    Line l = Line(); 
-    line_ptr = &(l);  
-}
-
-Read_tuple::Read_tuple() {
-    speculated = false; 
-    valid_data = 0; 
-    invalid_data = 0; 
-}
-
-// Magic_memory::Magic_memory() {
-//     addresses = vector<vector<uint64_t>>(); 
-// }
 
 bool Magic_memory::check_address(uint64_t address) {
     // for (auto addr_pair = addresses.begin(); addr_pair != addresses.end(); ++addr_pair) {
@@ -58,36 +43,6 @@ bool Magic_memory::check_address(uint64_t address) {
     }
     return false; // Address not allowed
 }
-
-System_stats::System_stats() {
-    rollback = 0; 
-    success = 0; 
-    success_addr_bound = 0; 
-    failed_addr_bound = 0;
-    speculate_cases = 0; 
-    total_cases = 0; 
-    bus_transactions = 0; 
-}
-
-
-//Cache_system::Cache_system(std::vector<std::vector<uint64_t>> addresses, uint8_t num_cores_param, 
-// Cache_system::Cache_system(std::vector<uint64_t> addresses, uint8_t num_cores_param, 
-//                             double speculation_percent_param, double margin_of_error_param) {
-//     global_time = 0; 
-//     num_cores = num_cores_param;
-//     speculation_percent = speculation_percent_param; 
-//     margin_of_error = margin_of_error_param; 
-
-//     for (uint8_t i = 0; i < num_cores; i++) {
-//         caches[i] = Cache(L1_SET_ASSOCIATIVITY, L1_NUM_SETS);
-//     }
-
-//     llc = Cache(LLC_SET_ASSOCIATIVITY, LLC_NUM_SETS);
-
-//     magic_memory = Magic_memory(addresses); 
-//     stats = System_stats(); 
-// }
-
 
 bool Cache_system::within_threshold(uint32_t valid, uint32_t invalid){
     
@@ -518,20 +473,17 @@ int main(){
     double speculation_percent = 0.5; 
     double margin_of_error = 0.1; 
 
-    std::vector<std::vector<uint64_t>> addresses; 
+    std::vector<uint64_t> addresses; 
     // We have to manually set the range of addresses  
 
     // Create Address Range 
     // pair<uint64_t, uint64_t> address_range0 = make_pair(0, 1000); 
     // pair<uint64_t, uint64_t> address_range1 = make_pair(100000, 500000); 
-    vector<uint64_t> address_range0 = vector<uint64_t>(); 
-    vector<uint64_t> address_range1 = vector<uint64_t>(); 
-    address_range0.push_back(0); 
-    address_range0.push_back(1000); 
-    address_range1.push_back(100000); 
-    address_range1.push_back(500000); 
-    addresses.push_back(address_range0); 
-    addresses.push_back(address_range1);
+    addresses.push_back(0); 
+    addresses.push_back(1000); 
+    addresses.push_back(100000); 
+    addresses.push_back(500000); 
+
  
     Cache_system cache_system(addresses, num_cores, speculation_percent, margin_of_error);
 

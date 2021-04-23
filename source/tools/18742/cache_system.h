@@ -82,7 +82,11 @@ class Line_result {
     public: 
         bool found; 
         Line *line_ptr; 
-        Line_result(); 
+        Line_result() {
+            found = false; 
+            Line l = Line(); 
+            line_ptr = &(l); 
+        }; 
 };
 
 
@@ -91,7 +95,11 @@ class Read_tuple {
         bool speculated; 
         uint32_t valid_data; 
         uint32_t invalid_data; 
-        Read_tuple(); 
+        Read_tuple() {
+            speculated = false; 
+            valid_data = 0; 
+            invalid_data = 0; 
+        }; 
 };
 
 // The cache system acts as the controller 
@@ -106,9 +114,8 @@ class Cache_system {
         Cache llc; 
         System_stats stats; 
 
-        Cache_system(std::vector<uint64_t> addresses, uint8_t number_cores, 
-        // Cache_system(std::vector<std::vector<uint64_t>> addresses, uint8_t number_cores, 
-                                                    double speculation_percent, double margin_of_error) {
+        Cache_system(std::vector<uint64_t> addresses, uint8_t num_cores, 
+                                    double speculation_percent, double margin_of_error) {
             this->global_time = 0; 
             this->num_cores = num_cores;
             this->speculation_percent = speculation_percent; 

@@ -27,7 +27,7 @@ void printAddressConvert(Cache c, uint64_t addr) {
     cout << "Address Convert: " << endl; 
     vector<uint64_t> info = c.address_convert(addr); 
     cout << "Tag: " << unsigned(info[0]) << endl; 
-    cout << "Index: " << info[1] << "\n" << endl; 
+    cout << "Index: " << unsigned(info[1]) << "\n" << endl; 
     
 }
 
@@ -48,65 +48,26 @@ void printReadAddress(Read_tuple t) {
     cout << "Valid Data: " << t.valid_data << endl; 
     cout << "Invalid Data: " << t.invalid_data << "\n" <<  endl; 
 }
-Line_result::Line_result() {
-    found = false; 
-    Line l = Line(); 
-    line_ptr = &(l);  
-}
 
-Read_tuple::Read_tuple() {
-    speculated = false; 
-    valid_data = 0; 
-    invalid_data = 0; 
-}
-
-Magic_memory::Magic_memory() {
-    addresses = vector<vector<uint64_t>>(); 
-}
 
 bool Magic_memory::check_address(uint64_t address) {
-    // for (auto addr_pair = addresses.begin(); addr_pair != addresses.end(); ++addr_pair) {
-    //     if(address >= (*addr_pair).first && address < (*addr_pair).second) {
-    //         return true;
-    //     }
-    // }
 
-    for(int i = 0; i < addresses.size(); i++) {
-        if(address >= addresses[i][0] && address < addresses[i][1]) {
+    printf("Check address: %lx\n", address);
+    if (this->addresses.size() % 2 != 0) {
+        printf("Magic Memory not given 2n values (paired ranges)\n");
+    }
+
+    for(int i = 0; i < addresses.size(); i+=2) {
+        if (this->addresses[i] > this->addresses[i+1]) {
+            printf("Magic memory pair a is not less than or equal to b\n");
+        }
+
+        if(address >= this->addresses[i] && address < this->addresses[i]) {
             return true; 
         }
     }
     return false; // Address not allowed
 }
-
-System_stats::System_stats() {
-    rollback = 0; 
-    success = 0; 
-    success_addr_bound = 0; 
-    failed_addr_bound = 0;
-    speculate_cases = 0; 
-    total_cases = 0; 
-    bus_transactions = 0; 
-}
-
-
-Cache_system::Cache_system(std::vector<std::vector<uint64_t>> addresses, uint8_t num_cores_param, 
-                            double speculation_percent_param, double margin_of_error_param) {
-    global_time = 0; 
-    num_cores = num_cores_param;
-    speculation_percent = speculation_percent_param; 
-    margin_of_error = margin_of_error_param; 
-
-    for (uint8_t i = 0; i < num_cores; i++) {
-        caches[i] = Cache(L1_SET_ASSOCIATIVITY, L1_NUM_SETS);
-    }
-
-    llc = Cache(LLC_SET_ASSOCIATIVITY, LLC_NUM_SETS);
-
-    magic_memory = Magic_memory(addresses); 
-    stats = System_stats(); 
-}
-
 
 bool Cache_system::within_threshold(uint32_t valid, uint32_t invalid){
     
@@ -194,7 +155,7 @@ void Cache_system::cache_write(uint8_t coreID, uint64_t addr, uint32_t data){
     // Compare tags -- see if address is in the set at all -- gives line <tag, valid, dirty, state> (Hit/Miss)
     Line_result line_info = lookup_line(addr, coreID, false); 
     cout << "In Cache Write: " << boolalpha << line_info.found << endl; 
-
+    cout << "coreid: " << unsigned(coreID) << endl; 
     if (line_info.found) {
         caches[coreID].cache_stats.num_writes_hits += 1;
         Line *line = line_info.line_ptr; 
@@ -274,14 +235,15 @@ void Cache_system::cache_write(uint8_t coreID, uint64_t addr, uint32_t data){
         Set set = caches[coreID].sets[set_index]; 
 
         Line new_line(MODIFIED, tag, data, global_time); 
-
+        
         caches[coreID].cache_stats.num_write_to_llc += 1; 
         update_llc(addr, data); 
-
+        
         // If the cache isn't full. 
         if(set.lines.size() < L1_SET_ASSOCIATIVITY) {
-            // cout << "False, cache is not full: " << endl; 
+            cout << "False, cache is not full: " << endl; 
             caches[coreID].sets[set_index].lines.push_back(new_line); 
+            printLine(caches[0].sets[1].lines[0]);
         }
         // If the cache is full... Evict a cache line and replace it with LLC Line. 
         else {
@@ -531,28 +493,25 @@ Read_tuple Cache_system::cache_read(uint8_t coreID, uint64_t addr){
 
 
 
-
 int main(){
     uint8_t num_cores = 2; // Temporary 
     double speculation_percent = 0.5; 
     double margin_of_error = 0.1; 
 
-    std::vector<std::vector<uint64_t>> addresses; 
+    std::vector<uint64_t> addresses; 
     // We have to manually set the range of addresses  
 
     // Create Address Range 
     // pair<uint64_t, uint64_t> address_range0 = make_pair(0, 1000); 
     // pair<uint64_t, uint64_t> address_range1 = make_pair(100000, 500000); 
-    vector<uint64_t> address_range0 = vector<uint64_t>(); 
-    vector<uint64_t> address_range1 = vector<uint64_t>(); 
-    address_range0.push_back(0); 
-    address_range0.push_back(1000); 
-    address_range1.push_back(100000); 
-    address_range1.push_back(500000); 
-    addresses.push_back(address_range0); 
-    addresses.push_back(address_range1);
+
+    addresses.push_back(0); 
+    addresses.push_back(1000); 
+    addresses.push_back(100000); 
+    addresses.push_back(500000); 
+
  
-    Cache_system cache_system(addresses, num_cores, speculation_percent, margin_of_error);
+    Cache_system cache_system(addresses, 2, speculation_percent, margin_of_error);
 
     Cache llc = cache_system.llc; 
     
@@ -588,7 +547,7 @@ int main(){
     uint64_t addr = 4080; // Tag = 63 Index = 1
     uint64_t addr2 = 224; // Tag = 3 Index = 1
     uint64_t addr3 = 480; // Tag = 7 Index = 1
-    // printAddressConvert(llc, addr); 
+    printAddressConvert(c0, addr); 
 
     
     // Cache has addr 4080... tag = 63 and index = 1; 
@@ -605,6 +564,7 @@ int main(){
     
     cache_system.cache_write(0, addr, 111);
     cache_system.cache_write(1, addr, 222);
+    cout << "Hello" << endl; 
     printLine(cache_system.caches[0].sets[1].lines[0]);
     printLine(cache_system.caches[1].sets[1].lines[0]);
 

@@ -1,6 +1,7 @@
 #include <vector>
 #include <cstdint>
 #include <map>
+#include <iostream> 
 
 // // Non-Memory Operations
 // #define ADD_CYCLES 1
@@ -29,8 +30,18 @@ class Line {
         uint64_t tag;
         uint32_t data; 
         uint64_t time_accessed; // This is for LRU Replacement Policy 
-        Line(); 
-        Line(cache_states state, uint64_t tag, uint32_t data, uint64_t time_accessed);
+        Line() {
+            state = INVALID; 
+            tag = 0;
+            data = 0; 
+            time_accessed = 0; 
+        }; 
+        Line(cache_states state, uint64_t tag, uint32_t data, uint64_t time_accessed) {
+            this->state = state; 
+            this->tag = tag; 
+            this->data = data; 
+            this->time_accessed = time_accessed;
+        };
 
 };
 
@@ -98,7 +109,6 @@ class Cache {
                 this->sets.insert(std::pair<uint64_t, Set>(setID, s));    
             }
 
-            // std::cout << "in cache " << unsigned(set_associativity) << endl; 
             this->set_associativity = set_associativity;
             this->num_sets = num_sets; 
         }; 
