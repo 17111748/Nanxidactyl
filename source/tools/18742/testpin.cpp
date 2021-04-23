@@ -19,7 +19,7 @@
 // #include <tuple>
 
 // #include "cache_system.h"
-// #include "sample.cpp"
+#include "sample.cpp"
 
 using std::cerr;
 using std::ofstream;
@@ -176,10 +176,10 @@ void ThreadStart(THREADID threadId, CONTEXT *ctxt, INT32 flags, VOID *v)
     
         // Create cache system
         std::vector<std::pair<uint64_t, uint64_t>> addresses;
-        addresses.push_back(std::make_pair((uint64_t) pin_data.addr_A, (uint64_t) pin_data.addr_A + pin_data.A_length * sizeof(float)));
-        addresses.push_back(std::make_pair((uint64_t) pin_data.addr_B, (uint64_t) pin_data.addr_B + pin_data.B_length * sizeof(float)));
-        addresses.push_back(std::make_pair((uint64_t) pin_data.addr_CWT, (uint64_t) pin_data.addr_CWT + pin_data.CWT_length * sizeof(float)));
-        addresses.push_back(std::make_pair((uint64_t) pin_data.addr_CWOT, (uint64_t) pin_data.addr_CWOT + pin_data.CWOT_length * sizeof(float)));
+        // addresses.push_back(std::make_pair((uint64_t) pin_data.addr_A, (uint64_t) pin_data.addr_A + pin_data.A_length * sizeof(float)));
+        // addresses.push_back(std::make_pair((uint64_t) pin_data.addr_B, (uint64_t) pin_data.addr_B + pin_data.B_length * sizeof(float)));
+        // addresses.push_back(std::make_pair((uint64_t) pin_data.addr_CWT, (uint64_t) pin_data.addr_CWT + pin_data.CWT_length * sizeof(float)));
+        // addresses.push_back(std::make_pair((uint64_t) pin_data.addr_CWOT, (uint64_t) pin_data.addr_CWOT + pin_data.CWOT_length * sizeof(float)));
         // cache = Cache_system(addresses, pin_data.num_cores, 0.1, 5);
     }
 }
@@ -195,8 +195,8 @@ int main(int argc, char * argv[])
     s.push_back(1);
 
     std::map<int, int> m;
-    // Sample k = Sample();
-    // printf("%i\n", k.ret(s));
+    Sample k = Sample();
+    printf("%i\n", k.ret(s));
     
     // std::tuple<int, int> k;
 
