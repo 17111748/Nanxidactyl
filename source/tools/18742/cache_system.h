@@ -44,8 +44,12 @@ class Magic_memory {
         Magic_memory() {
             // this->addresses = std::vector<std::vector<uint64_t>>(); 
             this->addresses = std::vector<uint64_t>();
+            printf("MAGIC MEMORY init ifn2\n");
         };
-        Magic_memory(std::vector<uint64_t> addresses_param) {addresses = addresses_param;}  
+        Magic_memory(std::vector<uint64_t> addresses_param) {
+            this->addresses = addresses_param;
+            printf("MAGIC MEMORY init fin\n");
+        }; 
         // Magic_memory(std::vector<std::vector<uint64_t>> addresses_param) {addresses = addresses_param;}  
 
         bool check_address(uint64_t address); 
@@ -105,7 +109,7 @@ class Cache_system {
         Cache_system(std::vector<uint64_t> addresses, uint8_t number_cores, 
         // Cache_system(std::vector<std::vector<uint64_t>> addresses, uint8_t number_cores, 
                                                     double speculation_percent, double margin_of_error) {
-                                                            global_time = 0; 
+            this->global_time = 0; 
             this->num_cores = num_cores;
             this->speculation_percent = speculation_percent; 
             this->margin_of_error = margin_of_error; 
@@ -118,6 +122,9 @@ class Cache_system {
 
             this->magic_memory = Magic_memory(addresses); 
             this->stats = System_stats(); 
+            printf(
+                "FINISHED Cache_system init\n"
+            );
         };
 
         // std::pair<bool, Line*> lookup_line(uint64_t addr, uint8_t coreID, bool is_llc); 
