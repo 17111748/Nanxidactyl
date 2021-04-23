@@ -6,11 +6,20 @@
 
 using namespace std; 
 
+// void printLine(Line l) {
+//     cout << "Printing Line: " << endl; 
+//     cout << "State: " << l.state << endl; 
+//     cout << "Tag: " << unsigned(l.tag) << endl;
+//     for(int i = 0; i < l.data.size(); i++) {
+//         cout << "Data " << i << ": " << l.data[i] << endl; 
+//     }
+//     cout << "Time Accessed: " << l.time_accessed << "\n" << endl; 
+// }
 void printLine(Line l) {
     cout << "Printing Line: " << endl; 
     cout << "State: " << l.state << endl; 
     cout << "Tag: " << unsigned(l.tag) << endl;
-    cout << "Data: " << l.data << endl; 
+    cout << "Data: " << l.data << endl;  
     cout << "Time Accessed: " << l.time_accessed << "\n" << endl; 
 }
 
@@ -39,7 +48,6 @@ void printReadAddress(Read_tuple t) {
     cout << "Valid Data: " << t.valid_data << endl; 
     cout << "Invalid Data: " << t.invalid_data << "\n" <<  endl; 
 }
-
 Line_result::Line_result() {
     found = false; 
     Line l = Line(); 
@@ -520,6 +528,8 @@ Read_tuple Cache_system::cache_read(uint8_t coreID, uint64_t addr){
         return result;
     }
 }
+
+
 
 
 int main(){
