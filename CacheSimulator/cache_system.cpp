@@ -6,15 +6,32 @@
 
 using namespace std; 
 
+Line_result::Line_result() {
+    found = false; 
+    Line l = Line(); 
+    line_ptr = &(l);  
+}
+
+Read_tuple::Read_tuple() {
+    speculated = false; 
+    valid_data = 0; 
+    invalid_data = 0; 
+}
 
 Magic_memory::Magic_memory() {
-    addresses = vector<pair<uint64_t, uint64_t>>(); 
+    addresses = vector<vector<uint64_t>>(); 
 }
 
 bool Magic_memory::check_address(uint64_t address) {
-    for (auto addr_pair = addresses.begin(); addr_pair != addresses.end(); ++addr_pair) {
-        if(address >= (*addr_pair).first && address < (*addr_pair).second) {
-            return true;
+    // for (auto addr_pair = addresses.begin(); addr_pair != addresses.end(); ++addr_pair) {
+    //     if(address >= (*addr_pair).first && address < (*addr_pair).second) {
+    //         return true;
+    //     }
+    // }
+
+    for(int i = 0; i < addresses.size(); i++) {
+        if(address >= addresses[i][0] && address < addresses[i][1]) {
+            return true; 
         }
     }
     return false; // Address not allowed
@@ -31,7 +48,7 @@ System_stats::System_stats() {
 }
 
 
-Cache_system::Cache_system(std::vector<std::pair<uint64_t, uint64_t>> addresses, uint8_t num_cores_param, 
+Cache_system::Cache_system(std::vector<std::vector<uint64_t>> addresses, uint8_t num_cores_param, 
                             double speculation_percent_param, double margin_of_error_param) {
     global_time = 0; 
     num_cores = num_cores_param;
@@ -62,7 +79,7 @@ bool Cache_system::within_threshold(uint32_t valid, uint32_t invalid){
 
 // return a flag to indicate if a line with matching address is found,
 // also return the line if the line is found 
-pair<bool, Line*> Cache_system::lookup_line(uint64_t addr, uint8_t coreID, bool is_llc){
+Line_result Cache_system::lookup_line(uint64_t addr, uint8_t coreID, bool is_llc){
 
     Cache cache; 
     if (is_llc) {
@@ -72,11 +89,12 @@ pair<bool, Line*> Cache_system::lookup_line(uint64_t addr, uint8_t coreID, bool 
         cache = caches[coreID]; 
     }
 
-    std::pair<uint64_t, uint64_t> addr_info = cache.address_convert(addr); 
-    uint64_t tag = addr_info.first; 
-    uint64_t set_index = addr_info.second; 
+    std::vector<uint64_t> addr_info = cache.address_convert(addr); 
+    uint64_t tag = addr_info[0]; 
+    uint64_t set_index = addr_info[1]; 
 
-
+    Line_result result = Line_result(); 
+    
     Set set = cache.sets[set_index]; 
     for (uint64_t i = 0; i < set.lines.size(); i++) {
         Line line = set.lines[i]; 
@@ -84,23 +102,29 @@ pair<bool, Line*> Cache_system::lookup_line(uint64_t addr, uint8_t coreID, bool 
             // If there is a match then update the access time. 
             // caches[coreID].sets[set_index].lines[i].time_accessed = global_time; 
             if(is_llc) {
-                return std::make_pair(true, &(llc.sets[set_index].lines[i])); 
+                result.found = true; 
+                result.line_ptr = &(llc.sets[set_index].lines[i]); 
+                return result; 
             }
             else {
-                return std::make_pair(true, &(caches[coreID].sets[set_index].lines[i])); 
+                result.found = true; 
+                result.line_ptr = &(caches[coreID].sets[set_index].lines[i]); 
+                return result; 
             }
         }
     }
 
     Line *empty = NULL; 
-    return std::make_pair(false, empty); 
+    result.found = false; 
+    result.line_ptr = empty; 
+    return result; 
 }
 
 // Create copy in LLC because it is a write through cache. 
 void Cache_system::update_llc(uint64_t addr, uint32_t data) {
-    std::pair<uint64_t, uint64_t> addr_info = llc.address_convert(addr); 
-    uint64_t tag = addr_info.first; 
-    uint64_t set_index = addr_info.second; 
+    std::vector<uint64_t> addr_info = llc.address_convert(addr); 
+    uint64_t tag = addr_info[0]; 
+    uint64_t set_index = addr_info[1]; 
     Set set = llc.sets[set_index]; 
 
     // If there is a match in the LLC then update it. 
@@ -126,12 +150,12 @@ void Cache_system::cache_write(uint8_t coreID, uint64_t addr, uint32_t data){
 
     // Check cache[coreID] for the address -- gives set <Line1, Line2, Line3, ...>
     // Compare tags -- see if address is in the set at all -- gives line <tag, valid, dirty, state> (Hit/Miss)
-    std::pair<bool, Line*> line_info = lookup_line(addr, coreID, false); 
-    cout << "In Cache Write: " << boolalpha << line_info.first << endl; 
+    Line_result line_info = lookup_line(addr, coreID, false); 
+    cout << "In Cache Write: " << boolalpha << line_info.found << endl; 
 
-    if (line_info.first) {
+    if (line_info.found) {
         caches[coreID].cache_stats.num_writes_hits += 1;
-        Line *line = line_info.second; 
+        Line *line = line_info.line_ptr; 
         line->time_accessed = global_time; 
         // If address is in the cache (M), write normally
             // Remain in the same state 
@@ -153,10 +177,10 @@ void Cache_system::cache_write(uint8_t coreID, uint64_t addr, uint32_t data){
             for (uint8_t core_index = 0; core_index < num_cores; core_index++){
                 if (core_index != coreID){
                     // look up helper function to find the line that tag matches
-                    std::pair<bool, Line*> other_line_info = lookup_line(addr, core_index, false); 
-                    if (other_line_info.first) {
+                    Line_result other_line_info = lookup_line(addr, core_index, false); 
+                    if (other_line_info.found) {
                         caches[core_index].cache_stats.num_access += 1; 
-                        Line *other_line = other_line_info.second; 
+                        Line *other_line = other_line_info.line_ptr; 
                         other_line->time_accessed = global_time; 
                         // if in M or S state ... don't need to flush because of write through cache
                         if (other_line->state == MODIFIED || other_line->state == SHARED) {
@@ -202,9 +226,9 @@ void Cache_system::cache_write(uint8_t coreID, uint64_t addr, uint32_t data){
         caches[coreID].cache_stats.num_write_misses += 1;
 
         // Find the Value in the LLC 
-        std::pair<uint64_t, uint64_t> addr_info = caches[coreID].address_convert(addr); 
-        uint64_t tag = addr_info.first; 
-        uint64_t set_index = addr_info.second; 
+        std::vector<uint64_t> addr_info = caches[coreID].address_convert(addr); 
+        uint64_t tag = addr_info[0]; 
+        uint64_t set_index = addr_info[1]; 
         Set set = caches[coreID].sets[set_index]; 
 
         Line new_line(MODIFIED, tag, data, global_time); 
@@ -238,10 +262,10 @@ void Cache_system::cache_write(uint8_t coreID, uint64_t addr, uint32_t data){
             stats.bus_transactions += 1; 
             if (core_index != coreID){
                 // look up helper function to find the line that tag matches
-                std::pair<bool, Line*> other_line_info = lookup_line(addr, core_index, false); 
-                if (other_line_info.first) {
+                Line_result other_line_info = lookup_line(addr, core_index, false); 
+                if (other_line_info.found) {
                     caches[core_index].cache_stats.num_access += 1; 
-                    Line *other_line = other_line_info.second; 
+                    Line *other_line = other_line_info.line_ptr; 
                     other_line->time_accessed = global_time; 
                     // if in M or S state ... don't need to flush because of write through cache
                     if (other_line->state == MODIFIED || other_line->state == SHARED) {
@@ -274,25 +298,31 @@ void Cache_system::cache_write(uint8_t coreID, uint64_t addr, uint32_t data){
 }
 
 // Returns (Flag whether we speculated or not, Real Data, Invalid Data) 
-tuple<bool, uint32_t, uint32_t> Cache_system::cache_read(uint8_t coreID, uint64_t addr){
+Read_tuple Cache_system::cache_read(uint8_t coreID, uint64_t addr){
     global_time += 1; 
     caches[coreID].cache_stats.num_access += 1; 
 
     // Check cache[coreID] for the address -- gives set <Line1, Line2, Line3, ...
     // Compare tags -- see if address is in the set at all -- gives line <tag, valid, dirty, state> (Hit/Miss)
-    std::pair<bool, Line*> line_info = lookup_line(addr, coreID, false); 
-    cout << "In Cache Read: " << boolalpha << line_info.first << "\n" << endl; 
+    Line_result line_info = lookup_line(addr, coreID, false); 
+    cout << "In Cache Read: " << boolalpha << line_info.found << "\n" << endl; 
     // If the address matches the L1 Cache 
     bool access_llc_flag = true; 
-    if (line_info.first) {
+
+    Read_tuple result = Read_tuple(); 
+
+    if (line_info.found) {
         caches[coreID].cache_stats.num_reads_hits += 1; 
-        Line *line = line_info.second; 
+        Line *line = line_info.line_ptr; 
         line->time_accessed = global_time; 
         // If address is in the cache (M,S), Use valid data
         // Return the data 
         // Remain in the same state 
         if (line->state == MODIFIED || line->state == SHARED) {
-            return std::make_tuple(false, line->data, 0);
+            result.speculated = false; 
+            result.valid_data = line->data; 
+            result.invalid_data = 0; 
+            return result; 
         }
         // If address is in the cache (V)
             // Go to Shared state 
@@ -307,10 +337,10 @@ tuple<bool, uint32_t, uint32_t> Cache_system::cache_read(uint8_t coreID, uint64_
             for (uint8_t core_index = 0; core_index < num_cores; core_index++){
                 if (core_index != coreID){
                     // look up helper function to find the line that tag matches
-                    std::pair<bool, Line*> other_line_info = lookup_line(addr, core_index, false); 
-                    if (other_line_info.first) {
+                    Line_result other_line_info = lookup_line(addr, core_index, false); 
+                    if (other_line_info.found) {
                         caches[core_index].cache_stats.num_access += 1; 
-                        Line *other_line = other_line_info.second; 
+                        Line *other_line = other_line_info.line_ptr; 
                         other_line->time_accessed = global_time; 
                         // if in M or S state
                         if (other_line->state == MODIFIED || other_line->state == SHARED) {
@@ -326,11 +356,17 @@ tuple<bool, uint32_t, uint32_t> Cache_system::cache_read(uint8_t coreID, uint64_
             // Checks whether the data is close enough 
             if(within_threshold(valid_data, invalid_data)) {
                 stats.success += 1; 
-                return std::make_tuple(true, valid_data, invalid_data); 
+                result.speculated = true; 
+                result.valid_data = valid_data; 
+                result.invalid_data = invalid_data; 
+                return result;
             } 
             else {
                 stats.rollback += 1; 
-                return std::make_tuple(false, valid_data, invalid_data); 
+                result.speculated = false; 
+                result.valid_data = valid_data; 
+                result.invalid_data = invalid_data; 
+                return result;
             }
             
         }
@@ -348,10 +384,10 @@ tuple<bool, uint32_t, uint32_t> Cache_system::cache_read(uint8_t coreID, uint64_
             for (uint8_t core_index = 0; core_index < num_cores; core_index++){
                 if (core_index != coreID){
                     // look up helper function to find the line that tag matches
-                    std::pair<bool, Line*> other_line_info = lookup_line(addr, core_index, false); 
-                    if (other_line_info.first) {
+                    Line_result other_line_info = lookup_line(addr, core_index, false); 
+                    if (other_line_info.found) {
                         caches[core_index].cache_stats.num_access += 1; 
-                        Line *other_line = other_line_info.second; 
+                        Line *other_line = other_line_info.line_ptr; 
                         other_line->time_accessed = global_time; 
                         // if in M or S state
                         if (other_line->state == MODIFIED || other_line->state == SHARED) {
@@ -365,12 +401,16 @@ tuple<bool, uint32_t, uint32_t> Cache_system::cache_read(uint8_t coreID, uint64_
             // If not found in the other cores then fetch from the LLC 
             if (access_llc_flag) {
                 caches[coreID].cache_stats.num_read_from_llc += 1; 
-                std::pair<bool, Line*> llc_line_info = lookup_line(addr, 0, true); 
-                valid_data = (llc_line_info.second)->data; 
+                Line_result llc_line_info = lookup_line(addr, 0, true); 
+                valid_data = (llc_line_info.line_ptr)->data; 
             }
             line->state = SHARED; 
             line->data = valid_data; 
-            return std::make_tuple(false, valid_data, invalid_data);
+
+            result.speculated = false; 
+            result.valid_data = valid_data; 
+            result.invalid_data = invalid_data; 
+            return result;
         }  
     }
     // If address is not in the cache, fetch data from llc, assume a write-through cache
@@ -382,9 +422,9 @@ tuple<bool, uint32_t, uint32_t> Cache_system::cache_read(uint8_t coreID, uint64_
         stats.bus_transactions += 1; 
         // Find the Value in the LLC 
         Line LLC_line; 
-        std::pair<uint64_t, uint64_t> addr_info = llc.address_convert(addr); 
-        uint64_t tag = addr_info.first; 
-        uint64_t set_index = addr_info.second; 
+        std::vector<uint64_t> addr_info = llc.address_convert(addr); 
+        uint64_t tag = addr_info[0]; 
+        uint64_t set_index = addr_info[1]; 
         Set set = llc.sets[set_index]; 
 
         for (int i = 0; i < set.lines.size(); i++) {
@@ -397,8 +437,8 @@ tuple<bool, uint32_t, uint32_t> Cache_system::cache_read(uint8_t coreID, uint64_
 
         // Put line into the L1 Cache 
         addr_info = caches[coreID].address_convert(addr); 
-        tag = addr_info.first; 
-        set_index = addr_info.second; 
+        tag = addr_info[0]; 
+        set_index = addr_info[1]; 
         set = caches[coreID].sets[set_index]; 
 
         LLC_line.state = SHARED; 
@@ -427,10 +467,10 @@ tuple<bool, uint32_t, uint32_t> Cache_system::cache_read(uint8_t coreID, uint64_
         for (uint8_t core_index = 0; core_index < num_cores; core_index++){
             if (core_index != coreID){
                 // look up helper function to find the line that tag matches
-                std::pair<bool, Line*> other_line_info = lookup_line(addr, core_index, false); 
-                if (other_line_info.first) {
+                Line_result other_line_info = lookup_line(addr, core_index, false); 
+                if (other_line_info.found) {
                     caches[core_index].cache_stats.num_access += 1; 
-                    Line *other_line = other_line_info.second; 
+                    Line *other_line = other_line_info.line_ptr; 
                     other_line->time_accessed = global_time; 
                     // if in M state
                     if (other_line->state == MODIFIED) {
@@ -440,7 +480,10 @@ tuple<bool, uint32_t, uint32_t> Cache_system::cache_read(uint8_t coreID, uint64_
             }
         }
         
-        return std::make_tuple(false, LLC_line.data , 0); 
+        result.speculated = false; 
+        result.valid_data = LLC_line.data; 
+        result.invalid_data = 0; 
+        return result;
     }
 }
 
@@ -452,17 +495,21 @@ int main(){
     double speculation_percent = 0.5; 
     double margin_of_error = 0.1; 
 
-    std::vector<std::pair<uint64_t, uint64_t>> addresses; 
+    std::vector<std::vector<uint64_t>> addresses; 
     // We have to manually set the range of addresses  
-    addresses = vector<pair<uint64_t, uint64_t>>(); 
 
     // Create Address Range 
-    pair<uint64_t, uint64_t> address_range0 = make_pair(0, 1000); 
-    pair<uint64_t, uint64_t> address_range1 = make_pair(100000, 500000); 
+    // pair<uint64_t, uint64_t> address_range0 = make_pair(0, 1000); 
+    // pair<uint64_t, uint64_t> address_range1 = make_pair(100000, 500000); 
+    vector<uint64_t> address_range0 = vector<uint64_t>(); 
+    vector<uint64_t> address_range1 = vector<uint64_t>(); 
+    address_range0.push_back(0); 
+    address_range0.push_back(1000); 
+    address_range1.push_back(100000); 
+    address_range1.push_back(500000); 
     addresses.push_back(address_range0); 
     addresses.push_back(address_range1);
  
-
     Cache_system cache_system(addresses, num_cores, speculation_percent, margin_of_error);
 
     return 0; 
