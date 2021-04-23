@@ -38,12 +38,15 @@
 class Magic_memory {
     public: 
         // Pair of start-inclusive, end-exclusive addresses which are allowed to perform protocol
-        std::vector<std::vector<uint64_t>> addresses;
-
+        // std::vector<std::vector<uint64_t>> addresses;
+        std::vector<uint64_t> addresses; // 2n vector of pairs
+        
         Magic_memory() {
-            this->addresses = std::vector<std::vector<uint64_t>>(); 
+            // this->addresses = std::vector<std::vector<uint64_t>>(); 
+            this->addresses = std::vector<uint64_t>();
         };
-        Magic_memory(std::vector<std::vector<uint64_t>> addresses_param) {addresses = addresses_param;}  
+        Magic_memory(std::vector<uint64_t> addresses_param) {addresses = addresses_param;}  
+        // Magic_memory(std::vector<std::vector<uint64_t>> addresses_param) {addresses = addresses_param;}  
 
         bool check_address(uint64_t address); 
 }; 
@@ -99,7 +102,8 @@ class Cache_system {
         Cache llc; 
         System_stats stats; 
 
-        Cache_system(std::vector<std::vector<uint64_t>> addresses, uint8_t number_cores, 
+        Cache_system(std::vector<uint64_t> addresses, uint8_t number_cores, 
+        // Cache_system(std::vector<std::vector<uint64_t>> addresses, uint8_t number_cores, 
                                                     double speculation_percent, double margin_of_error) {
                                                             global_time = 0; 
             this->num_cores = num_cores;

@@ -168,6 +168,7 @@ void Image(IMG img, VOID *v) {
 
 void ThreadStart(THREADID threadId, CONTEXT *ctxt, INT32 flags, VOID *v)
 {
+    printf("Thread Start %i\n", threadId);
     // Thread 0 is the main thread
 
     // Thread 1 is the thread to execute code after init
@@ -175,13 +176,39 @@ void ThreadStart(THREADID threadId, CONTEXT *ctxt, INT32 flags, VOID *v)
         pin_data = (pin_data_t) ((pin_data_t (*) (void)) funcMap["ret_pin_data"])();
     
         // Create cache system
-        std::vector<std::vector<uint64_t>> addresses;
-        addresses.push_back(std::vector<uint64_t>{(uint64_t) pin_data.addr_A, (uint64_t) pin_data.addr_A + pin_data.A_length * sizeof(float)});
+        // std::vector<std::vector<uint64_t>> addresses;
+        // printf("[%lx, %lx)", pin_data.addr_A, pin_data.addr_A + pin_data.A_length * sizeof(float));
+        // std::vector<uint64_t> pairA = std::vector<uint64_t>{(uint64_t) pin_data.addr_A, (uint64_t) pin_data.addr_A + pin_data.A_length * sizeof(float)};
+        // addresses.push_back(pairA);
+        // std::vector<uint64_t> pairB = std::vector<uint64_t>{(uint64_t) pin_data.addr_B, (uint64_t) pin_data.addr_B + pin_data.B_length * sizeof(float)};
+        // addresses.push_back(pairB);
+        printf("BEGIN\n");
+
+        std::vector<uint64_t>  addresses;
+        addresses.push_back((uint64_t) pin_data.addr_A);
+        addresses.push_back((uint64_t) pin_data.addr_A + pin_data.A_length * sizeof(float));
+        addresses.push_back((uint64_t) pin_data.addr_B);
+        addresses.push_back((uint64_t) pin_data.addr_B + pin_data.B_length * sizeof(float));
+        addresses.push_back((uint64_t) pin_data.addr_CWT);
+        addresses.push_back((uint64_t) pin_data.addr_CWT + pin_data.CWT_length * sizeof(float));
+        addresses.push_back((uint64_t) pin_data.addr_CWOT);
+        addresses.push_back((uint64_t) pin_data.addr_CWOT + pin_data.CWOT_length * sizeof(float));
+        // for (int i = 0; i < 10000; i ++) {
+        //     addresses.push_back(1);
+        // }
+
+        printf("HERE\n");
+        // Initializing vector is causing PIN to run out of memory
+        // addresses.push_back(std::vector<uint64_t>{(uint64_t) pin_data.addr_A, (uint64_t) pin_data.addr_A + pin_data.A_length * sizeof(float)});
         // addresses.push_back(std::make_pair((uint64_t) pin_data.addr_B, (uint64_t) pin_data.addr_B + pin_data.B_length * sizeof(float)));
         // addresses.push_back(std::make_pair((uint64_t) pin_data.addr_CWT, (uint64_t) pin_data.addr_CWT + pin_data.CWT_length * sizeof(float)));
         // addresses.push_back(std::make_pair((uint64_t) pin_data.addr_CWOT, (uint64_t) pin_data.addr_CWOT + pin_data.CWOT_length * sizeof(float)));
         *cache = Cache_system(addresses, pin_data.num_cores, 0.1, 5);
+        printf("END\n");
+
     }
+    printf("Thread End %i\n", threadId);
+
 }
 /* ===================================================================== */
 /* Main                                                                  */
@@ -191,15 +218,6 @@ void ThreadStart(THREADID threadId, CONTEXT *ctxt, INT32 flags, VOID *v)
 
 int main(int argc, char * argv[])
 {
-    std::vector<int> s;
-    s.push_back(1);
-
-    std::map<int, int> m;
-    // Sample k = Sample();
-    // printf("%i\n", k.ret(s));
-    
-    // std::tuple<int, int> k;
-
     // Initialize pin
     if (PIN_Init(argc, argv)) return Usage();
 

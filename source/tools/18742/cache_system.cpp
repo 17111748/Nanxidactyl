@@ -18,9 +18,9 @@ Read_tuple::Read_tuple() {
     invalid_data = 0; 
 }
 
-Magic_memory::Magic_memory() {
-    addresses = vector<vector<uint64_t>>(); 
-}
+// Magic_memory::Magic_memory() {
+//     addresses = vector<vector<uint64_t>>(); 
+// }
 
 bool Magic_memory::check_address(uint64_t address) {
     // for (auto addr_pair = addresses.begin(); addr_pair != addresses.end(); ++addr_pair) {
@@ -29,8 +29,30 @@ bool Magic_memory::check_address(uint64_t address) {
     //     }
     // }
 
-    for(int i = 0; i < addresses.size(); i++) {
-        if(address >= addresses[i][0] && address < addresses[i][1]) {
+    // printf("Check address: %lx\n", address);
+    // for(int i = 0; i < addresses.size(); i++) {
+    //     if (addresses[i].size() != 2) {
+    //         printf(
+    //             "ERROR: magic memory sizing is incorrect\n"
+    //         );
+    //     }
+
+    //     if(address >= addresses[i][0] && address < addresses[i][1]) {
+    //         return true; 
+    //     }
+    // }
+
+    printf("Check address: %lx\n", address);
+    if (this->addresses.size() % 2 != 0) {
+        printf("Magic Memory not given 2n values (paired ranges)\n");
+    }
+
+    for(int i = 0; i < addresses.size(); i+=2) {
+        if (this->addresses[i] > this->addresses[i+1]) {
+            printf("Magic memory pair a is not less than or equal to b\n");
+        }
+
+        if(address >= this->addresses[i] && address < this->addresses[i]) {
             return true; 
         }
     }
@@ -48,22 +70,23 @@ System_stats::System_stats() {
 }
 
 
-Cache_system::Cache_system(std::vector<std::vector<uint64_t>> addresses, uint8_t num_cores_param, 
-                            double speculation_percent_param, double margin_of_error_param) {
-    global_time = 0; 
-    num_cores = num_cores_param;
-    speculation_percent = speculation_percent_param; 
-    margin_of_error = margin_of_error_param; 
+//Cache_system::Cache_system(std::vector<std::vector<uint64_t>> addresses, uint8_t num_cores_param, 
+// Cache_system::Cache_system(std::vector<uint64_t> addresses, uint8_t num_cores_param, 
+//                             double speculation_percent_param, double margin_of_error_param) {
+//     global_time = 0; 
+//     num_cores = num_cores_param;
+//     speculation_percent = speculation_percent_param; 
+//     margin_of_error = margin_of_error_param; 
 
-    for (uint8_t i = 0; i < num_cores; i++) {
-        caches[i] = Cache(L1_SET_ASSOCIATIVITY, L1_NUM_SETS);
-    }
+//     for (uint8_t i = 0; i < num_cores; i++) {
+//         caches[i] = Cache(L1_SET_ASSOCIATIVITY, L1_NUM_SETS);
+//     }
 
-    llc = Cache(LLC_SET_ASSOCIATIVITY, LLC_NUM_SETS);
+//     llc = Cache(LLC_SET_ASSOCIATIVITY, LLC_NUM_SETS);
 
-    magic_memory = Magic_memory(addresses); 
-    stats = System_stats(); 
-}
+//     magic_memory = Magic_memory(addresses); 
+//     stats = System_stats(); 
+// }
 
 
 bool Cache_system::within_threshold(uint32_t valid, uint32_t invalid){
