@@ -8,26 +8,37 @@
 #include <chrono>
 #include <thread>
 
+#define NUM_CORES 2
+
+typedef struct pin_data {
+    unsigned long addr_A;
+    unsigned long addr_B;
+    unsigned long addr_CWT;
+    unsigned long addr_CWOT;
+    int A_length;
+    int B_length;
+    int CWT_length;
+    int CWOT_length;
+    int num_cores;
+} pin_data_t;
+
 Matrix::matrix matrixA;
 Matrix::matrix matrixB;
 Matrix::matrix matrixCWT;
 Matrix::matrix matrixCWOT;
 
-// Returns the start address of the matrix memory location
-unsigned long matrix_addr_A() {
-    return (unsigned long) matrixA.matrix;
-}
-
-unsigned long matrix_addr_B() {
-    return (unsigned long) matrixB.matrix;
-}
-
-unsigned long matrix_addr_CWT() {
-    return (unsigned long) matrixCWT.matrix;
-}
-
-unsigned long matrix_addr_CWOT() {
-    return (unsigned long) matrixCWOT.matrix;
+pin_data_t ret_pin_data() {
+    pin_data_t data;
+    data.addr_A = (unsigned long) matrixA.matrix;
+    data.addr_B = (unsigned long) matrixB.matrix;
+    data.addr_CWT = (unsigned long) matrixCWT.matrix;
+    data.addr_CWOT = (unsigned long) matrixCWOT.matrix;
+    data.A_length = matrixA.n * matrixA.m;
+    data.B_length = matrixB.n * matrixB.m;
+    data.CWT_length = matrixCWT.n * matrixCWT.m;
+    data.CWOT_length = matrixCWOT.n * matrixCWOT.m;
+    data.num_cores = NUM_CORES;
+    return data;
 }
 
 using namespace std::chrono;
@@ -48,7 +59,7 @@ void matrixmult(Matrix::matrix* Cptr, Matrix::matrix* Aptr, Matrix::matrix* Bptr
 }
 
 void threadedmult(Matrix::matrix* Cptr, Matrix::matrix* Aptr, Matrix::matrix* Bptr) {
-    int thread_num = 2; 
+    int thread_num = NUM_CORES; 
     std::thread threadarr[thread_num];
     int step = Aptr->m / thread_num;
     int upperbound;
@@ -72,40 +83,12 @@ void threadedmult(Matrix::matrix* Cptr, Matrix::matrix* Aptr, Matrix::matrix* Bp
     std::cout << "\n[+] Threads completed!";
 }
 
-int main()
-{
-    std::cout << "Matrix multiplication\n";
-    /*time_t startWOT, stopWOT, startWT, stopWT;*/
 
-    matrixA.createRandomMatrix();
-    matrixB.createRandomMatrix();
-    matrixCWT.createEmptyMatrix();
-    matrixCWOT.createEmptyMatrix();
-
-	Matrix::matrix *matrixCWOTPtr = &matrixCWOT; //Pointer verweist auf den Speicher einer anderen Variable
+void *main_func(void *arg) {
+    Matrix::matrix *matrixCWOTPtr = &matrixCWOT; //Pointer verweist auf den Speicher einer anderen Variable
     Matrix::matrix *matrixAPtr = &matrixA;
     Matrix::matrix *matrixBPtr = &matrixB;
     Matrix::matrix* matrixCWTPtr = &matrixCWT;
-
-    // Only start pin trace after setting up problem space
-
-    printf("Address of A: %lx\n", (unsigned long) matrixA.matrix);
-    printf("Address of B: %lx\n", (unsigned long) matrixB.matrix);
-    printf("Address of C: %lx\n", (unsigned long) matrixCWT.matrix);
-
-        FILE *f;
-    f = fopen("testing.address", "w");
-    fprintf(f, "%lx", (unsigned long) &matrix_addr_A); // Write the address into file
-    printf("FUN ADDR %lx\n", (unsigned long) matrix_addr_A); // Write the address into file
-    printf("FUN ADDR %lx\n", matrix_addr_A()); // Write the address into file
-    fclose(f);
-
-    // std::cout << "\n[+] Single Core calculation started. \n[*] Calculating...";
-    // auto startWOT = high_resolution_clock::now();
-	// matrixmult(matrixCWOTPtr, matrixAPtr, matrixBPtr, matrixAPtr->m);
-    // auto stopWOT = high_resolution_clock::now();
-    // //double durationWOT = double(stopWOT - startWOT);
-    // std::cout << "\n[+] Single Core calculation finished \n[+] Duration: " << duration<double> (stopWOT - startWOT).count() << " seconds";
 
     std::cout << "\n[+] Multithreaded calculation started. \n[*] Calculating...";
     auto startWT = high_resolution_clock::now();
@@ -121,6 +104,37 @@ int main()
     matrixA.deleteMatrix();
     matrixB.deleteMatrix();
     matrixCWT.deleteMatrix();
+
+    return 0;
+}
+
+int main()
+{
+    std::cout << "Matrix multiplication\n";
+    /*time_t startWOT, stopWOT, startWT, stopWT;*/
+
+    matrixA.createRandomMatrix();
+    matrixB.createRandomMatrix();
+    matrixCWT.createEmptyMatrix();
+    matrixCWOT.createEmptyMatrix();
+
+    // Only start pin trace after setting up problem space
+
+    // printf("Address of A: %lx\n", (unsigned long) matrixA.matrix);
+    // printf("Address of B: %lx\n", (unsigned long) matrixB.matrix);
+    // printf("Address of C: %lx\n", (unsigned long) matrixCWT.matrix);
+
+    // std::cout << "\n[+] Single Core calculation started. \n[*] Calculating...";
+    // auto startWOT = high_resolution_clock::now();
+	// matrixmult(matrixCWOTPtr, matrixAPtr, matrixBPtr, matrixAPtr->m);
+    // auto stopWOT = high_resolution_clock::now();
+    // //double durationWOT = double(stopWOT - startWOT);
+    // std::cout << "\n[+] Single Core calculation finished \n[+] Duration: " << duration<double> (stopWOT - startWOT).count() << " seconds";
+
+    // Execute the entire main section in a separate thread for PIN
+    pthread_t npid1;
+    pthread_create(&npid1, NULL, main_func, NULL);
+    pthread_join(npid1, NULL);
 
     // Compile this with: 
     // g++ -std=c++11 -pthread Matrix.h Matrix.cpp MatrixMultiply.cpp 
