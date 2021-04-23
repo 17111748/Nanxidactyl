@@ -38,5 +38,5 @@ I kept some of the cpp and c files in 18742 because it seems to be a linux thing
 
 
 READ HERE: 
-compile pin: make obj-intel64/testpin.so TARGET=intel64
+compile pin from source/tools/18742: make obj-intel64/testpin.so TARGET=intel64
 run pin from source/tools/18742: ../../../pin_linux -t obj-intel64/testpin.so -- ../../../MatrixMultiply/a.out
