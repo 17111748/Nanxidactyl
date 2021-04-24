@@ -30,6 +30,9 @@ using std::endl;
 
 ofstream OutFile;
 
+// Global PIN lock
+PIN_LOCK pinLock;
+
 // TOCHANGE: Copy from declaration in executable code
 typedef struct pin_data {
     unsigned long addr_A;
@@ -56,32 +59,50 @@ static UINT64 icount = 0;
 
 // This function is called before every instruction is executed    
 FILE * trace;
- 
+
 // Print a memory read record
-VOID RecordMemRead(VOID * ip, VOID * addr)
+VOID RecordMemRead(VOID * ip, VOID * addr, VOID *threadId)
 {
-    fprintf(trace,"%p: R %p\n", ip, addr);
-
-    unsigned long buf_addr = 0;
-
-    FILE *f;
-    f = fopen("testing.address", "r");
-    // buf_addr = 
-    fscanf(f, "%lx\n", &buf_addr);
-    fclose(f);
     
-    if (((unsigned long) addr) == buf_addr) {
-        printf("address %lx\n", buf_addr);
+    unsigned long tid = (unsigned long) threadId;
+    PIN_GetLock(&pinLock, tid);
+    // Only threadIds greater than 2 represent the execution we care about
+    
+    if (tid >= 2) {
+        fprintf(trace,"%p: R %p id %p\n", ip, addr, threadId);
     }
-    if (((unsigned long) addr) == buf_addr) {
-        ((int *) (addr))[0] = 69;
-    }
+    
+    // Read_tuple cache_read();
+
+    PIN_ReleaseLock(&pinLock);
 }
  
 // Print a memory write record
-VOID RecordMemWrite(VOID * ip, VOID * addr)
-{
-    fprintf(trace,"%p: W %p\n", ip, addr);
+VOID RecordMemWrite(VOID * ip, VOID * addr, VOID *data_size, VOID *threadId)
+{    
+    uint64_t tid = (uint64_t) threadId;
+    PIN_GetLock(&pinLock, tid);
+
+    uint64_t coreId = ((uint64_t) threadId) - 2;
+    ADDRINT *addr_ptr = (ADDRINT *)addr;
+    ADDRINT value;
+    PIN_SafeCopy(&value, addr_ptr, sizeof(ADDRINT));
+    uint64_t data = value;
+
+    // printf("Record write %p %li %li\n", addr, data, coreId);
+
+    if (tid >= 2) {
+        if (cache == NULL) {
+            // printf("CACHE WAS NULL");
+        } else {
+            // printf("WRITE %p\n", addr);
+            fprintf(trace,"%p: W %p\n", ip, addr); // , threadId);
+            // printf("Spec percent: %f", cache->speculation_percent);
+            cache->cache_write(coreId, (uint64_t) addr, data);
+        }
+    }
+
+    PIN_ReleaseLock(&pinLock);
 }
 
 // Pin calls this function every time a new instruction is encountered
@@ -102,7 +123,9 @@ VOID Instruction(INS ins, VOID *v) // Instrumentation
             INS_InsertPredicatedCall(
                 ins, IPOINT_BEFORE, (AFUNPTR)RecordMemRead,
                 IARG_INST_PTR,
-                IARG_MEMORYOP_EA, memOp,
+                IARG_MEMORYOP_EA, 
+                memOp,
+                IARG_THREAD_ID, 
                 IARG_END);
         }
         // Note that in some architectures a single memory operand can be 
@@ -110,11 +133,21 @@ VOID Instruction(INS ins, VOID *v) // Instrumentation
         // In that case we instrument it once for read and once for write.
         if (INS_MemoryOperandIsWritten(ins, memOp))
         {
-            INS_InsertPredicatedCall(
-                ins, IPOINT_BEFORE, (AFUNPTR)RecordMemWrite,
-                IARG_INST_PTR,
-                IARG_MEMORYOP_EA, memOp,
-                IARG_END);
+
+            if (INS_IsValidForIpointAfter(ins)) {
+                // Write into cache model after write occurs
+                // Need to do this to pull the real written value to memory
+                INS_InsertPredicatedCall(
+                    ins, IPOINT_BEFORE, (AFUNPTR)RecordMemWrite,
+                    IARG_INST_PTR,
+
+                    IARG_MEMORYOP_EA, 
+                    memOp,
+                    IARG_MEMORYWRITE_SIZE,
+
+                    IARG_THREAD_ID, 
+                    IARG_END);
+            }
         }
     }
 }
@@ -171,7 +204,8 @@ void ThreadStart(THREADID threadId, CONTEXT *ctxt, INT32 flags, VOID *v)
 {
     printf("Thread Start %i\n", threadId);
     // Thread 0 is the main thread
-
+    PIN_GetLock(&pinLock, threadId);
+    
     // Thread 1 is the thread to execute code after init
     if (threadId == 1) {
         pin_data = (pin_data_t) ((pin_data_t (*) (void)) funcMap["ret_pin_data"])();
@@ -187,10 +221,12 @@ void ThreadStart(THREADID threadId, CONTEXT *ctxt, INT32 flags, VOID *v)
         addresses.push_back((uint64_t) pin_data.addr_CWOT);
         addresses.push_back((uint64_t) pin_data.addr_CWOT + pin_data.CWOT_length * sizeof(float));
 
-        Cache_system cs = Cache_system(addresses, pin_data.num_cores, 0.1, 5);
-        cache = &cs; // Create pointer to new cache system
+        cache = new Cache_system(addresses, pin_data.num_cores, 0.1, 5);
+        
 
     }
+    PIN_ReleaseLock(&pinLock);
+
     printf("Thread End %i\n", threadId);
 
 }
@@ -206,6 +242,9 @@ int main(int argc, char * argv[])
     if (PIN_Init(argc, argv)) return Usage();
 
     trace = fopen("pinatrace.out", "w");
+
+    // Initialize the pin lock
+    PIN_InitLock(&pinLock);
     
     PIN_InitSymbols();
 

@@ -18,6 +18,10 @@
 // #define WRITE_TO_MEMORY_CYCLES 100
 
 
+// Buffer Sizes 
+#define BLOCK_SIZE 5
+#define ADDR_SIZE 64
+
 // Different Cache States for the cache coherence protocol 
 enum cache_states {INVALID, SHARED, VICTIMIZED, MODIFIED}; 
 
@@ -53,6 +57,8 @@ class Set {
         uint8_t setID; 
         Set() {
             this->setID = 0; 
+            this->num_lines = 0;
+            this->lines = std::vector<Line>();
         }; 
         Set(std::vector<Line> lines, uint64_t num_lines, uint8_t setID) {
             this->lines = lines;	
@@ -115,7 +121,18 @@ class Cache {
 
 
         // Methods: < Tag, Index > 
-        std::vector<uint64_t> address_convert(uint64_t addr);
+        std::vector<uint64_t> address_convert(uint64_t addr) {
+            uint8_t index_length = log2(num_sets); 
+            uint8_t tag_length = ADDR_SIZE - BLOCK_SIZE - index_length; 
+
+            uint64_t tag = addr >> (ADDR_SIZE - tag_length); 
+            uint64_t index = (addr << tag_length) >> (tag_length + BLOCK_SIZE); 
+
+            std::vector<uint64_t> result; 
+            result.push_back(tag); 
+            result.push_back(unsigned(index)); 
+            return result; 
+        };
 
 };
 
