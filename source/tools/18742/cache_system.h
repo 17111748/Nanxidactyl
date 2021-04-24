@@ -7,19 +7,6 @@
 #define ROLLBACK_CYCLES 100 
 #define SUCCESS_CYCLES 30 
 
-// L1 Cache parameters 
-#define L1_SET_ASSOCIATIVITY 8
-#define L1_NUM_SETS 32
-// LLC Cache parameters
-#define LLC_SET_ASSOCIATIVITY 8
-#define LLC_NUM_SETS 64
-
-// #define L1_SET_ASSOCIATIVITY 2
-// #define L1_NUM_SETS 2
-// #define LLC_SET_ASSOCIATIVITY 2
-// #define LLC_NUM_SETS 16
-
-
 // Magic Memory Address Range index by 2
 // Allowed Addresses to perform Victimized Protocol
 // Address booking: keeps track of the address ranges that can tolerate approximation

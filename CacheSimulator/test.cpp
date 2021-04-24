@@ -574,15 +574,16 @@ int main(){
     // cache_system.caches[0].sets[1].lines.push_back(Line()); 
     // cache_system.caches[0].sets[1].lines[0].state = SHARED; 
     // cache_system.caches[0].sets[1].lines[0].tag = 63; 
-    // cache_system.caches[0].sets[1].lines[0].data = 10000; 
+    // cache_system.caches[0].sets[1].lines[0].data[0] = 10000; 
     // cache_system.caches[0].sets[1].lines[0].time_accessed = 1; 
 
     
     cache_system.cache_write(0, addr, 111);
     cache_system.cache_write(0, addr+1, 777);
     cache_system.cache_write(1, addr, 222);
-    cout << "Hello" << endl; 
+    cout << "\nHello" << endl; 
     printLine(cache_system.caches[0].sets[1].lines[0]);
+    cout << "Hello 2" << endl; 
     printLine(cache_system.caches[1].sets[1].lines[0]);
 
     // cache_system.cache_write(0, addr2, 222); 

@@ -1,6 +1,5 @@
 #include <vector>
 #include <cstdint>
-#include <map>
 #include <iostream> 
 
 // Memory Operations
@@ -11,14 +10,26 @@
 #define READ_TO_MEMORY_CYCLES 100
 #define WRITE_TO_MEMORY_CYCLES 100
 
-// Buffer Sizes 
-#define NUM_BLOCKS 4
-#define BLOCK_SIZE 2
+// // Buffer Sizes 
+// #define NUM_BLOCKS 4
+// #define BLOCK_SIZE 2
+// #define ADDR_SIZE 64
+
+// // L1 Cache parameters 
+// #define L1_SET_ASSOCIATIVITY 8
+// #define L1_NUM_SETS 32
+// // LLC Cache parameters
+// #define LLC_SET_ASSOCIATIVITY 8
+// #define LLC_NUM_SETS 64
+
+#define NUM_BLOCKS 32
+#define BLOCK_SIZE 5
 #define ADDR_SIZE 64
 
-// #define NUM_BLOCKS 32
-// #define BLOCK_SIZE 5
-// #define ADDR_SIZE 64
+#define L1_SET_ASSOCIATIVITY 2
+#define L1_NUM_SETS 2
+#define LLC_SET_ASSOCIATIVITY 2
+#define LLC_NUM_SETS 16
 
 // Different Cache States for the cache coherence protocol 
 enum cache_states {INVALID, SHARED, VICTIMIZED, MODIFIED}; 
@@ -92,7 +103,7 @@ class Cache {
 
     public: 
         Cache_stat cache_stats; 
-        std::map<uint64_t, Set> sets;
+        std::vector<Set> sets;
 
         uint64_t set_associativity;
         uint64_t num_sets;
@@ -103,13 +114,13 @@ class Cache {
         }; 
         Cache(uint64_t set_associativity, uint64_t num_sets){
             this->cache_stats = Cache_stat(); 
-            this->sets = std::map<uint64_t, Set> {};// Map of index -> Set 
+            this->sets = std::vector<Set>();// Map of index -> Set 
             for (uint64_t setID = 0; setID < num_sets; setID++) {
                 // vector<Line> lines(set_associativity_param, Line());
                 std::vector<Line> lines;
                 uint64_t num_lines = set_associativity;
                 Set s = Set(lines, num_lines, setID);
-                this->sets.insert(std::pair<uint64_t, Set>(setID, s));    
+                this->sets.push_back(s);    
             }
 
             this->set_associativity = set_associativity;
