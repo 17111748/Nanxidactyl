@@ -3,20 +3,22 @@
 #include <map>
 #include <iostream> 
 
-// // Non-Memory Operations
-// #define ADD_CYCLES 1
-// #define MULTIPLY_CYCLES 2
-// #define DIVIDE_CYCLES 3
+// Memory Operations
+#define READ_HIT_CYCLES 1
+#define READ_MISS_CYCLES 2
+#define WRITE_HIT_CYCLES 1
+#define WRITE_MISS_CYCLES 2
+#define READ_TO_MEMORY_CYCLES 100
+#define WRITE_TO_MEMORY_CYCLES 100
 
+// Buffer Sizes 
+#define NUM_BLOCKS 4
+#define BLOCK_SIZE 2
+#define ADDR_SIZE 64
 
-// // Memory Operations
-// #define READ_HIT_CYCLES 1
-// #define READ_MISS_CYCLES 2
-// #define WRITE_HIT_CYCLES 1
-// #define WRITE_MISS_CYCLES 2
-// #define READ_TO_MEMORY_CYCLES 100
-// #define WRITE_TO_MEMORY_CYCLES 100
-
+// #define NUM_BLOCKS 32
+// #define BLOCK_SIZE 5
+// #define ADDR_SIZE 64
 
 // Different Cache States for the cache coherence protocol 
 enum cache_states {INVALID, SHARED, VICTIMIZED, MODIFIED}; 
@@ -28,18 +30,19 @@ class Line {
     public: 
         cache_states state;
         uint64_t tag;
-        uint32_t data; 
+        std::vector<uint32_t> data; 
         uint64_t time_accessed; // This is for LRU Replacement Policy 
         Line() {
             state = INVALID; 
             tag = 0;
-            data = 0; 
+            data = std::vector<uint32_t>(); 
             time_accessed = 0; 
         }; 
-        Line(cache_states state, uint64_t tag, uint32_t data, uint64_t time_accessed) {
+        Line(cache_states state, uint64_t tag, uint32_t data, uint64_t time_accessed, uint8_t block_index) {
             this->state = state; 
             this->tag = tag; 
-            this->data = data; 
+            this->data = std::vector<uint32_t>(NUM_BLOCKS, 0); 
+            this->data[block_index] = data;
             this->time_accessed = time_accessed;
         };
 

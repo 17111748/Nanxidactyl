@@ -8,24 +8,6 @@ using namespace std;
 
 
 bool Magic_memory::check_address(uint64_t address) {
-    // for (auto addr_pair = addresses.begin(); addr_pair != addresses.end(); ++addr_pair) {
-    //     if(address >= (*addr_pair).first && address < (*addr_pair).second) {
-    //         return true;
-    //     }
-    // }
-
-    // printf("Check address: %lx\n", address);
-    // for(int i = 0; i < addresses.size(); i++) {
-    //     if (addresses[i].size() != 2) {
-    //         printf(
-    //             "ERROR: magic memory sizing is incorrect\n"
-    //         );
-    //     }
-
-    //     if(address >= addresses[i][0] && address < addresses[i][1]) {
-    //         return true; 
-    //     }
-    // }
 
     printf("Check address: %lx\n", address);
     if (this->addresses.size() % 2 != 0) {
@@ -103,19 +85,20 @@ void Cache_system::update_llc(uint64_t addr, uint32_t data) {
     std::vector<uint64_t> addr_info = llc.address_convert(addr); 
     uint64_t tag = addr_info[0]; 
     uint64_t set_index = addr_info[1]; 
+    uint64_t block_index = addr_info[2]; 
     Set set = llc.sets[set_index]; 
 
     // If there is a match in the LLC then update it. 
     for (int i = 0; i < set.lines.size(); i++) {
         Line line = set.lines[i]; 
         if (line.tag == tag) {
-            llc.sets[set_index].lines[i].data = data; 
+            llc.sets[set_index].lines[i].data[block_index] = data; 
             return; 
         }
     }
 
     // If no match found in the LLC then create a new line and insert
-    Line LLC_line(MODIFIED, tag, data, global_time); 
+    Line LLC_line(MODIFIED, tag, data, global_time, block_index); 
     llc.sets[set_index].lines.push_back(LLC_line); 
 }
 
@@ -126,11 +109,16 @@ void Cache_system::cache_write(uint8_t coreID, uint64_t addr, uint32_t data){
 
     caches[coreID].cache_stats.num_access += 1; 
 
+    std::vector<uint64_t> addr_info = caches[coreID].address_convert(addr); 
+    uint64_t tag = addr_info[0]; 
+    uint64_t set_index = addr_info[1]; 
+    uint64_t block_index = addr_info[2]; 
+
     // Check cache[coreID] for the address -- gives set <Line1, Line2, Line3, ...>
     // Compare tags -- see if address is in the set at all -- gives line <tag, valid, dirty, state> (Hit/Miss)
     Line_result line_info = lookup_line(addr, coreID, false); 
     cout << "In Cache Write: " << boolalpha << line_info.found << endl; 
-
+    cout << "coreid: " << unsigned(coreID) << endl; 
     if (line_info.found) {
         caches[coreID].cache_stats.num_writes_hits += 1;
         Line *line = line_info.line_ptr; 
@@ -139,7 +127,7 @@ void Cache_system::cache_write(uint8_t coreID, uint64_t addr, uint32_t data){
             // Remain in the same state 
             // Update in the LLC 
         if (line->state == MODIFIED) {
-            line->data = data; 
+            line->data[block_index] = data; 
             caches[coreID].cache_stats.num_write_to_llc += 1; 
             update_llc(addr, data); 
         }
@@ -186,7 +174,7 @@ void Cache_system::cache_write(uint8_t coreID, uint64_t addr, uint32_t data){
                     }
                 }
             }
-            line->data = data; 
+            line->data[block_index] = data; 
             caches[coreID].cache_stats.num_write_to_llc += 1; 
             update_llc(addr, data); 
         }
@@ -204,19 +192,19 @@ void Cache_system::cache_write(uint8_t coreID, uint64_t addr, uint32_t data){
         caches[coreID].cache_stats.num_write_misses += 1;
 
         // Find the Value in the LLC 
-        std::vector<uint64_t> addr_info = caches[coreID].address_convert(addr); 
-        uint64_t tag = addr_info[0]; 
-        uint64_t set_index = addr_info[1]; 
+        // std::vector<uint64_t> addr_info = caches[coreID].address_convert(addr); 
+        // uint64_t tag = addr_info[0]; 
+        // uint64_t set_index = addr_info[1]; 
         Set set = caches[coreID].sets[set_index]; 
 
-        Line new_line(MODIFIED, tag, data, global_time); 
-
+        Line new_line(MODIFIED, tag, data, global_time, block_index); 
+        
         caches[coreID].cache_stats.num_write_to_llc += 1; 
         update_llc(addr, data); 
-
+        
         // If the cache isn't full. 
         if(set.lines.size() < L1_SET_ASSOCIATIVITY) {
-            // cout << "False, cache is not full: " << endl; 
+            cout << "False, cache is not full: " << endl; 
             caches[coreID].sets[set_index].lines.push_back(new_line); 
         }
         // If the cache is full... Evict a cache line and replace it with LLC Line. 
@@ -280,6 +268,11 @@ Read_tuple Cache_system::cache_read(uint8_t coreID, uint64_t addr){
     global_time += 1; 
     caches[coreID].cache_stats.num_access += 1; 
 
+    std::vector<uint64_t> addr_info = caches[coreID].address_convert(addr); 
+    uint64_t tag = addr_info[0]; 
+    uint64_t set_index = addr_info[1]; 
+    uint64_t block_index = addr_info[2]; 
+
     // Check cache[coreID] for the address -- gives set <Line1, Line2, Line3, ...
     // Compare tags -- see if address is in the set at all -- gives line <tag, valid, dirty, state> (Hit/Miss)
     Line_result line_info = lookup_line(addr, coreID, false); 
@@ -298,7 +291,7 @@ Read_tuple Cache_system::cache_read(uint8_t coreID, uint64_t addr){
         // Remain in the same state 
         if (line->state == MODIFIED || line->state == SHARED) {
             result.speculated = false; 
-            result.valid_data = line->data; 
+            result.valid_data = line->data[block_index]; 
             result.invalid_data = 0; 
             return result; 
         }
@@ -310,7 +303,7 @@ Read_tuple Cache_system::cache_read(uint8_t coreID, uint64_t addr){
             stats.bus_transactions += 1; 
 
             uint32_t valid_data = 0; 
-            uint32_t invalid_data = line->data;
+            uint32_t invalid_data = line->data[block_index];
 
             for (uint8_t core_index = 0; core_index < num_cores; core_index++){
                 if (core_index != coreID){
@@ -322,14 +315,14 @@ Read_tuple Cache_system::cache_read(uint8_t coreID, uint64_t addr){
                         other_line->time_accessed = global_time; 
                         // if in M or S state
                         if (other_line->state == MODIFIED || other_line->state == SHARED) {
-                            valid_data = other_line->data;
+                            valid_data = other_line->data[block_index];
                             other_line->state = SHARED; 
                         }
                     }
                 }
             }
             line->state = SHARED;
-            line->data = valid_data;
+            line->data[block_index] = valid_data;
 
             // Checks whether the data is close enough 
             if(within_threshold(valid_data, invalid_data)) {
@@ -358,7 +351,7 @@ Read_tuple Cache_system::cache_read(uint8_t coreID, uint64_t addr){
         if (line->state == INVALID) {
             stats.bus_transactions += 1; 
             uint32_t valid_data = 0; 
-            uint32_t invalid_data = line->data;
+            uint32_t invalid_data = line->data[block_index];
             for (uint8_t core_index = 0; core_index < num_cores; core_index++){
                 if (core_index != coreID){
                     // look up helper function to find the line that tag matches
@@ -369,7 +362,7 @@ Read_tuple Cache_system::cache_read(uint8_t coreID, uint64_t addr){
                         other_line->time_accessed = global_time; 
                         // if in M or S state
                         if (other_line->state == MODIFIED || other_line->state == SHARED) {
-                            valid_data = other_line->data;
+                            valid_data = other_line->data[block_index];
                             other_line->state = SHARED; 
                             access_llc_flag = false; 
                         }
@@ -380,10 +373,16 @@ Read_tuple Cache_system::cache_read(uint8_t coreID, uint64_t addr){
             if (access_llc_flag) {
                 caches[coreID].cache_stats.num_read_from_llc += 1; 
                 Line_result llc_line_info = lookup_line(addr, 0, true); 
-                valid_data = (llc_line_info.line_ptr)->data; 
+                if (llc_line_info.found) {
+                    valid_data = (llc_line_info.line_ptr)->data[block_index]; 
+                }
+                else {
+                    cout << "In Read: Can't find data in cache or LLC" << endl;
+                    exit(-1);
+                }
             }
             line->state = SHARED; 
-            line->data = valid_data; 
+            line->data[block_index] = valid_data; 
 
             result.speculated = false; 
             result.valid_data = valid_data; 
@@ -459,12 +458,11 @@ Read_tuple Cache_system::cache_read(uint8_t coreID, uint64_t addr){
         }
         
         result.speculated = false; 
-        result.valid_data = LLC_line.data; 
+        result.valid_data = LLC_line.data[block_index]; 
         result.invalid_data = 0; 
         return result;
     }
 }
-
 
 
 

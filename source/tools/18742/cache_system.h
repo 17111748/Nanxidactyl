@@ -4,32 +4,20 @@
 #include <map>
 
 
-// Non-Memory Operations
-#define ADD_CYCLES 1
-#define MULTIPLY_CYCLES 2
-#define DIVIDE_CYCLES 3
+#define ROLLBACK_CYCLES 100 
+#define SUCCESS_CYCLES 30 
 
+// L1 Cache parameters 
+#define L1_SET_ASSOCIATIVITY 8
+#define L1_NUM_SETS 32
+// LLC Cache parameters
+#define LLC_SET_ASSOCIATIVITY 8
+#define LLC_NUM_SETS 64
 
-// Memory Operations
-#define READ_HIT_CYCLES 1
-#define READ_MISS_CYCLES 2
-#define WRITE_HIT_CYCLES 1
-#define WRITE_MISS_CYCLES 2
-#define READ_TO_MEMORY_CYCLES 100
-#define WRITE_TO_MEMORY_CYCLES 100 
-
-// // L1 Cache parameters 
-// #define L1_SET_ASSOCIATIVITY 8
-// #define L1_NUM_SETS 32
-// // LLC Cache parameters
-// #define LLC_SET_ASSOCIATIVITY 8
-// #define LLC_NUM_SETS 32
-
-#define L1_SET_ASSOCIATIVITY 2
-#define L1_NUM_SETS 2
-
-#define LLC_SET_ASSOCIATIVITY 2
-#define LLC_NUM_SETS 16
+// #define L1_SET_ASSOCIATIVITY 2
+// #define L1_NUM_SETS 2
+// #define LLC_SET_ASSOCIATIVITY 2
+// #define LLC_NUM_SETS 16
 
 
 // Magic Memory Address Range index by 2
@@ -44,12 +32,8 @@ class Magic_memory {
         Magic_memory() {
             // this->addresses = std::vector<std::vector<uint64_t>>(); 
             this->addresses = std::vector<uint64_t>();
-            printf("MAGIC MEMORY init ifn2\n");
         };
-        Magic_memory(std::vector<uint64_t> addresses_param) {
-            this->addresses = addresses_param;
-            printf("MAGIC MEMORY init fin\n");
-        }; 
+        Magic_memory(std::vector<uint64_t> addresses_param) {addresses = addresses_param;}  
         // Magic_memory(std::vector<std::vector<uint64_t>> addresses_param) {addresses = addresses_param;}  
 
         bool check_address(uint64_t address); 
@@ -115,12 +99,12 @@ class Cache_system {
         System_stats stats; 
 
         Cache_system(std::vector<uint64_t> addresses, uint8_t num_cores, 
-                                    double speculation_percent, double margin_of_error) {
+                            double speculation_percent, double margin_of_error) {
             this->global_time = 0; 
             this->num_cores = num_cores;
             this->speculation_percent = speculation_percent; 
             this->margin_of_error = margin_of_error; 
-
+            
             for (uint8_t i = 0; i < num_cores; i++) {
                 this->caches[i] = Cache(L1_SET_ASSOCIATIVITY, L1_NUM_SETS);
             }
@@ -129,9 +113,6 @@ class Cache_system {
 
             this->magic_memory = Magic_memory(addresses); 
             this->stats = System_stats(); 
-            printf(
-                "FINISHED Cache_system init\n"
-            );
         };
 
         // std::pair<bool, Line*> lookup_line(uint64_t addr, uint8_t coreID, bool is_llc); 
