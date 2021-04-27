@@ -80,8 +80,8 @@ class Line_result {
 class Read_tuple {
     public: 
         bool speculated; 
-        uint32_t valid_data; 
-        uint32_t invalid_data; 
+        uint64_t valid_data; 
+        uint64_t invalid_data; 
         Read_tuple() {
             speculated = false; 
             valid_data = 0; 
@@ -118,7 +118,7 @@ class Cache_system {
             this->stats = System_stats(); 
         };
 
-        bool within_threshold(uint32_t valid, uint32_t invalid) {
+        bool within_threshold(uint64_t valid, uint64_t invalid) {
             if(valid == 0 && invalid == 0) {
                 return true; 
             }
@@ -169,13 +169,16 @@ class Cache_system {
         }; 
 
 
-        void update_llc(uint64_t addr, uint32_t data) {
+        void update_llc(uint64_t addr, uint64_t data) {
+            // printf("Update LLC: Start Update LLC\n"); 
             std::vector<uint64_t> addr_info = llc.address_convert(addr); 
             uint64_t tag = addr_info[0]; 
             uint64_t set_index = addr_info[1]; 
             uint64_t block_index = addr_info[2]; 
-            Set set = llc.sets[set_index]; 
 
+            
+            Set set = llc.sets[set_index]; 
+            // printf("Update LLC: Get the Set %li\n", set.lines.size()); 
             // If there is a match in the LLC then update it. 
             for (unsigned int i = 0; i < set.lines.size(); i++) {
                 Line line = set.lines[i]; 
@@ -184,31 +187,37 @@ class Cache_system {
                     return; 
                 }
             }
-
+            // printf("Update LLC: no match create new line\n");
             // If no match found in the LLC then create a new line and insert
             Line LLC_line(MODIFIED, tag, data, global_time, block_index); 
+            // printf("Update LLC: Create LLC Line\n"); 
             llc.sets[set_index].lines.push_back(LLC_line);
+            // printf("Update LLC: End: No Match Found LLC\n"); 
         }; 
         
         
         
 
-        void cache_write(uint8_t coreID, uint64_t addr, uint32_t data) {
+        void cache_write(uint8_t coreID, uint64_t addr, uint64_t data) {
             global_time += 1; 
-
+            // printf("\nIn cache_system.h: In Cache Write Function \n"); 
+            // printf("Cache Write: CoreID: %i, Address: %li, Data: %li\n", coreID, addr, data);
             caches[coreID].cache_stats.num_access += 1; 
-
-            std::vector<uint64_t> addr_info = caches[coreID].address_convert(addr); 
+            // printf("Cache Write: Address Convert\n"); 
+            std::vector<uint64_t> addr_info = caches[coreID].address_convert(addr);
             uint64_t tag = addr_info[0]; 
             uint64_t set_index = addr_info[1]; 
             uint64_t block_index = addr_info[2]; 
+            // printf("Cache Write: Finish Address Convert: Tag: %li, Set: %li, Block: %li\n", tag, set_index, block_index);
 
             // Check cache[coreID] for the address -- gives set <Line1, Line2, Line3, ...>
             // Compare tags -- see if address is in the set at all -- gives line <tag, valid, dirty, state> (Hit/Miss)
             Line_result line_info = lookup_line(addr, coreID, false); 
             // cout << "In Cache Write: " << boolalpha << line_info.found << endl; 
+            
             // cout << "coreid: " << unsigned(coreID) << endl; 
             if (line_info.found) {
+                // printf("Cache Write: inside the cache (Hit)\n"); 
                 caches[coreID].cache_stats.num_writes_hits += 1;
                 Line *line = line_info.line_ptr; 
                 line->time_accessed = global_time; 
@@ -278,27 +287,30 @@ class Cache_system {
                 // Make it M state 
                 // Send BusRdX, and change the state of other cores 
             else {
+                // printf("Cache Write: NOT inside the cache (Miss)\n"); 
                 caches[coreID].cache_stats.num_write_misses += 1;
-
+                // printf("Cache Write: add num_write_misses\n");
                 // Find the Value in the LLC 
                 // std::vector<uint64_t> addr_info = caches[coreID].address_convert(addr); 
                 // uint64_t tag = addr_info[0]; 
                 // uint64_t set_index = addr_info[1]; 
                 Set set = caches[coreID].sets[set_index]; 
-
+                // printf("Cache Write: create new line\n");
                 Line new_line(MODIFIED, tag, data, global_time, block_index); 
                 
                 caches[coreID].cache_stats.num_write_to_llc += 1; 
+                // printf("Cache Write: Update LLC\n");
                 update_llc(addr, data); 
-                
+                // printf("Cache Write: After update llc \n");
                 // If the cache isn't full. 
                 if(set.lines.size() < L1_SET_ASSOCIATIVITY) {
                     // cout << "False, cache is not full: " << endl; 
+                    // printf("Cache Write: cache is not full\n");
                     caches[coreID].sets[set_index].lines.push_back(new_line); 
                 }
                 // If the cache is full... Evict a cache line and replace it with LLC Line. 
                 else {
-                    // cout << "False, cache is full: " << endl; 
+                    // printf("Cache Write: cache is full\n");
                     int LRU_index = 0; 
                     uint64_t LRU_time = set.lines[0].time_accessed;
                     for (uint8_t i = 1; i < set.lines.size(); i++) {
@@ -311,7 +323,7 @@ class Cache_system {
                     // cout << "LRU Index: " << LRU_index << " time: " << LRU_time << endl; 
                     caches[coreID].sets[set_index].lines[LRU_index] = new_line; 
                 }
-
+                // printf("Cache Write: Start checking other caches\n");
                 // Check if it's in other cache and change state 
                 for (uint8_t core_index = 0; core_index < num_cores; core_index++){
                     stats.bus_transactions += 1; 
@@ -392,8 +404,8 @@ class Cache_system {
                 if (line->state == VICTIMIZED) {
                     stats.bus_transactions += 1; 
 
-                    uint32_t valid_data = 0; 
-                    uint32_t invalid_data = line->data[block_index];
+                    uint64_t valid_data = 0; 
+                    uint64_t invalid_data = line->data[block_index];
 
                     for (uint8_t core_index = 0; core_index < num_cores; core_index++){
                         if (core_index != coreID){
@@ -440,8 +452,8 @@ class Cache_system {
                     // return the flag valid data, invalid data
                 if (line->state == INVALID) {
                     stats.bus_transactions += 1; 
-                    uint32_t valid_data = 0; 
-                    uint32_t invalid_data = line->data[block_index];
+                    uint64_t valid_data = 0; 
+                    uint64_t invalid_data = line->data[block_index];
                     for (uint8_t core_index = 0; core_index < num_cores; core_index++){
                         if (core_index != coreID){
                             // look up helper function to find the line that tag matches
@@ -468,7 +480,6 @@ class Cache_system {
                         }
                         else {
                             printf("In Read: Can't find data in cache or LLC"); 
-                            // cout << "In Read: Can't find data in cache or LLC" << endl;
                             exit(-1);
                         }
                     }

@@ -17,21 +17,21 @@
 #define BLOCK_SIZE 2
 #define ADDR_SIZE 64
 
-// L1 Cache parameters 
-#define L1_SET_ASSOCIATIVITY 8
-#define L1_NUM_SETS 32
-// LLC Cache parameters
-#define LLC_SET_ASSOCIATIVITY 8
-#define LLC_NUM_SETS 64
+// // L1 Cache parameters 
+// #define L1_SET_ASSOCIATIVITY 8
+// #define L1_NUM_SETS 32
+// // LLC Cache parameters
+// #define LLC_SET_ASSOCIATIVITY 8
+// #define LLC_NUM_SETS 64
 
 // #define NUM_BLOCKS 32
 // #define BLOCK_SIZE 5
 // #define ADDR_SIZE 64
 
-// #define L1_SET_ASSOCIATIVITY 2
-// #define L1_NUM_SETS 2
-// #define LLC_SET_ASSOCIATIVITY 2
-// #define LLC_NUM_SETS 16
+#define L1_SET_ASSOCIATIVITY 2
+#define L1_NUM_SETS 2
+#define LLC_SET_ASSOCIATIVITY 2
+#define LLC_NUM_SETS 16
 
 // // Buffer Sizes 
 // #define BLOCK_SIZE 5
@@ -47,18 +47,18 @@ class Line {
     public: 
         cache_states state;
         uint64_t tag;
-        std::vector<uint32_t> data; 
+        std::vector<uint64_t> data; 
         uint64_t time_accessed; // This is for LRU Replacement Policy 
         Line() {
             state = INVALID; 
             tag = 0;
-            data = std::vector<uint32_t>(); 
+            data = std::vector<uint64_t>(); 
             time_accessed = 0; 
         }; 
-        Line(cache_states state, uint64_t tag, uint32_t data, uint64_t time_accessed, uint8_t block_index) {
+        Line(cache_states state, uint64_t tag, uint64_t data, uint64_t time_accessed, uint8_t block_index) {
             this->state = state; 
             this->tag = tag; 
-            this->data = std::vector<uint32_t>(NUM_BLOCKS, 0); 
+            this->data = std::vector<uint64_t>(NUM_BLOCKS, 0); 
             this->data[block_index] = data;
             this->time_accessed = time_accessed;
         };
@@ -70,16 +70,13 @@ class Set {
     public: 
         std::vector<Line> lines;	
         uint64_t num_lines; 
-        uint8_t setID; 
         Set() {
-            this->setID = 0; 
             this->num_lines = 0;
             this->lines = std::vector<Line>();
         }; 
-        Set(std::vector<Line> lines, uint64_t num_lines, uint8_t setID) {
+        Set(std::vector<Line> lines, uint64_t num_lines) {
             this->lines = lines;	
             this->num_lines = num_lines; 
-            this->setID = setID;
         }; 
 
 }; 
@@ -127,7 +124,7 @@ class Cache {
                 // vector<Line> lines(set_associativity_param, Line());
                 std::vector<Line> lines;
                 uint64_t num_lines = set_associativity;
-                Set s = Set(lines, num_lines, setID);
+                Set s = Set(lines, num_lines);
                 this->sets.push_back(s);    
             }
 
@@ -138,16 +135,21 @@ class Cache {
 
         // Methods: < Tag, Index > 
         std::vector<uint64_t> address_convert(uint64_t addr) {
+            // printf("Address Convert: Start\n"); 
             uint8_t index_length = log2(num_sets); 
             uint8_t tag_length = ADDR_SIZE - BLOCK_SIZE - index_length; 
 
             uint64_t tag = addr >> (ADDR_SIZE - tag_length); 
             uint64_t index = (addr << tag_length) >> (tag_length + BLOCK_SIZE); 
+            uint64_t block = addr << (ADDR_SIZE - BLOCK_SIZE) >> (ADDR_SIZE - BLOCK_SIZE);
 
             std::vector<uint64_t> result; 
             result.push_back(tag); 
-            result.push_back(unsigned(index)); 
+            result.push_back(index); 
+            result.push_back(block); 
+            // printf("Address Convert: Tag: %li, Set: %li, Block: %li\n", tag, index, block);
             return result; 
+
         };
 
 };
