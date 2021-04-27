@@ -4,33 +4,8 @@
 #include <map>
 
 
-// Non-Memory Operations
-#define ADD_CYCLES 1
-#define MULTIPLY_CYCLES 2
-#define DIVIDE_CYCLES 3
-
-
-// Memory Operations
-#define READ_HIT_CYCLES 1
-#define READ_MISS_CYCLES 2
-#define WRITE_HIT_CYCLES 1
-#define WRITE_MISS_CYCLES 2
-#define READ_TO_MEMORY_CYCLES 100
-#define WRITE_TO_MEMORY_CYCLES 100 
-
-// // L1 Cache parameters 
-// #define L1_SET_ASSOCIATIVITY 8
-// #define L1_NUM_SETS 32
-// // LLC Cache parameters
-// #define LLC_SET_ASSOCIATIVITY 8
-// #define LLC_NUM_SETS 32
-
-#define L1_SET_ASSOCIATIVITY 2
-#define L1_NUM_SETS 2
-
-#define LLC_SET_ASSOCIATIVITY 2
-#define LLC_NUM_SETS 16
-
+#define ROLLBACK_CYCLES 100 
+#define SUCCESS_CYCLES 30 
 
 // Magic Memory Address Range index by 2
 // Allowed Addresses to perform Victimized Protocol

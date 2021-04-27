@@ -1,22 +1,35 @@
 #include <vector>
 #include <cstdint>
-#include <map>
 #include <iostream> 
 
-// // Non-Memory Operations
-// #define ADD_CYCLES 1
-// #define MULTIPLY_CYCLES 2
-// #define DIVIDE_CYCLES 3
+// Memory Operations
+#define READ_HIT_CYCLES 1
+#define READ_MISS_CYCLES 2
+#define WRITE_HIT_CYCLES 1
+#define WRITE_MISS_CYCLES 2
+#define READ_TO_MEMORY_CYCLES 100
+#define WRITE_TO_MEMORY_CYCLES 100
 
+// // Buffer Sizes 
+#define NUM_BLOCKS 4
+#define BLOCK_SIZE 2
+#define ADDR_SIZE 64
 
-// // Memory Operations
-// #define READ_HIT_CYCLES 1
-// #define READ_MISS_CYCLES 2
-// #define WRITE_HIT_CYCLES 1
-// #define WRITE_MISS_CYCLES 2
-// #define READ_TO_MEMORY_CYCLES 100
-// #define WRITE_TO_MEMORY_CYCLES 100
+// L1 Cache parameters 
+#define L1_SET_ASSOCIATIVITY 8
+#define L1_NUM_SETS 32
+// LLC Cache parameters
+#define LLC_SET_ASSOCIATIVITY 8
+#define LLC_NUM_SETS 64
 
+// #define NUM_BLOCKS 32
+// #define BLOCK_SIZE 5
+// #define ADDR_SIZE 64
+
+// #define L1_SET_ASSOCIATIVITY 2
+// #define L1_NUM_SETS 2
+// #define LLC_SET_ASSOCIATIVITY 2
+// #define LLC_NUM_SETS 16
 
 // Buffer Sizes 
 #define BLOCK_SIZE 5
@@ -32,18 +45,19 @@ class Line {
     public: 
         cache_states state;
         uint64_t tag;
-        uint32_t data; 
+        std::vector<uint32_t> data; 
         uint64_t time_accessed; // This is for LRU Replacement Policy 
         Line() {
             state = INVALID; 
             tag = 0;
-            data = 0; 
+            data = std::vector<uint32_t>(); 
             time_accessed = 0; 
         }; 
-        Line(cache_states state, uint64_t tag, uint32_t data, uint64_t time_accessed) {
+        Line(cache_states state, uint64_t tag, uint32_t data, uint64_t time_accessed, uint8_t block_index) {
             this->state = state; 
             this->tag = tag; 
-            this->data = data; 
+            this->data = std::vector<uint32_t>(NUM_BLOCKS, 0); 
+            this->data[block_index] = data;
             this->time_accessed = time_accessed;
         };
 
@@ -95,7 +109,7 @@ class Cache {
 
     public: 
         Cache_stat cache_stats; 
-        std::map<uint64_t, Set> sets;
+        std::vector<Set> sets;
 
         uint64_t set_associativity;
         uint64_t num_sets;
@@ -106,13 +120,13 @@ class Cache {
         }; 
         Cache(uint64_t set_associativity, uint64_t num_sets){
             this->cache_stats = Cache_stat(); 
-            this->sets = std::map<uint64_t, Set> {};// Map of index -> Set 
+            this->sets = std::vector<Set>();// Map of index -> Set 
             for (uint64_t setID = 0; setID < num_sets; setID++) {
                 // vector<Line> lines(set_associativity_param, Line());
                 std::vector<Line> lines;
                 uint64_t num_lines = set_associativity;
                 Set s = Set(lines, num_lines, setID);
-                this->sets.insert(std::pair<uint64_t, Set>(setID, s));    
+                this->sets.push_back(s);    
             }
 
             this->set_associativity = set_associativity;
