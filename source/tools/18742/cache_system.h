@@ -80,10 +80,12 @@ class Line_result {
 class Read_tuple {
     public: 
         bool speculated; 
+        bool not_in_system; 
         uint64_t valid_data; 
         uint64_t invalid_data; 
         Read_tuple() {
             speculated = false; 
+            not_in_system = false; 
             valid_data = 0; 
             invalid_data = 0; 
         }; 
@@ -367,6 +369,7 @@ class Cache_system {
         // Returns < Whether it is speculated, valid data, invalid/speculative data > 
         // std::tuple<bool, uint32_t, uint32_t> cache_read(uint8_t coreID, uint64_t addr);
         Read_tuple cache_read(uint8_t coreID, uint64_t addr) {
+            // printf("Cache Read: Start Cache Read \n"); 
             global_time += 1; 
             caches[coreID].cache_stats.num_access += 1; 
 
@@ -383,8 +386,10 @@ class Cache_system {
             bool access_llc_flag = true; 
 
             Read_tuple result = Read_tuple(); 
-
+            
+            
             if (line_info.found) {
+                // printf("Cache Read: Cache Hit\n"); 
                 caches[coreID].cache_stats.num_reads_hits += 1; 
                 Line *line = line_info.line_ptr; 
                 line->time_accessed = global_time; 
@@ -478,9 +483,9 @@ class Cache_system {
                         if (llc_line_info.found) {
                             valid_data = (llc_line_info.line_ptr)->data[block_index]; 
                         }
-                        else {
-                            printf("In Read: Can't find data in cache or LLC"); 
-                            exit(-1);
+                        else { // Not in the LLC as well 
+                            result.not_in_system = true; 
+                            return result;
                         }
                     }
                     line->state = SHARED; 
@@ -489,6 +494,7 @@ class Cache_system {
                     result.speculated = false; 
                     result.valid_data = valid_data; 
                     result.invalid_data = invalid_data; 
+                    // printf("Cache Read: End Cache Read with cache (Hit)\n"); 
                     return result;
                 }  
             }
@@ -496,6 +502,7 @@ class Cache_system {
                 // return the valid data
                 // insert fake latency -- entry into update buffer to update to S state after n cycles
             else {
+                // printf("Cache Read: Cache Miss\n"); 
                 caches[coreID].cache_stats.num_read_misses += 1; 
                 caches[coreID].cache_stats.num_read_from_llc += 1; 
                 stats.bus_transactions += 1; 
@@ -504,25 +511,38 @@ class Cache_system {
                 std::vector<uint64_t> addr_info = llc.address_convert(addr); 
                 uint64_t tag = addr_info[0]; 
                 uint64_t set_index = addr_info[1]; 
+                uint64_t block_index = addr_info[2]; 
+
                 Set set = llc.sets[set_index]; 
 
+                bool in_LLC = false; 
+                // printf("Cache Read: Attempt to Find Tag\n"); 
                 for (unsigned int i = 0; i < set.lines.size(); i++) {
                     Line line = set.lines[i]; 
                     if (line.tag == tag) {
+                        in_LLC = true; 
                         LLC_line = line; 
                         break; 
                     }
+                }
+
+                // If Value is not in the LLC as well 
+                if(!in_LLC) {
+                    result.not_in_system = true; 
+                    return result; 
                 }
 
                 // Put line into the L1 Cache 
                 addr_info = caches[coreID].address_convert(addr); 
                 tag = addr_info[0]; 
                 set_index = addr_info[1]; 
+                block_index = addr_info[2]; 
                 set = caches[coreID].sets[set_index]; 
 
                 LLC_line.state = SHARED; 
                 LLC_line.tag = tag; 
                 LLC_line.time_accessed = global_time; 
+
                 // If there isn't a capacity miss 
                 if(set.lines.size() < L1_SET_ASSOCIATIVITY) {
                     caches[coreID].sets[set_index].lines.push_back(LLC_line); 
@@ -541,7 +561,6 @@ class Cache_system {
                     caches[coreID].sets[set_index].lines[LRU_index] = LLC_line; 
                 }
 
-                
                 // Update the other cache states 
                 for (uint8_t core_index = 0; core_index < num_cores; core_index++){
                     if (core_index != coreID){
@@ -558,12 +577,15 @@ class Cache_system {
                         }
                     }
                 }
-                
+                // printf("Cache Read: Done Updating\n"); 
                 result.speculated = false; 
                 result.valid_data = LLC_line.data[block_index]; 
                 result.invalid_data = 0; 
+                // printf("Cache Read: End Cache Read with cache (Miss)\n"); 
                 return result;
             }
+            printf("\nIn cache_system.h: Shouldn't get here in Cache Read\n"); 
+            return result; 
         };
 };
 

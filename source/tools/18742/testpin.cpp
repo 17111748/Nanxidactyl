@@ -53,6 +53,11 @@ pin_data_t pin_data;
 // Cache system to track reads
 Cache_system* cache = NULL;
 
+// Speculated to revert back to original 
+bool speculative_revert = false;
+std::map<uint64_t, uint64_t> revert_map; // Stores Address and Data 
+
+
 // The running count of instructions is kept here
 // make it static to help the compiler optimize docount
 static UINT64 icount = 0;
@@ -63,13 +68,33 @@ FILE * trace;
 // Occurs before memory access
 VOID RecordMemRead(VOID * ip, VOID * addr, VOID *threadId)
 {
-    
+    // printf("Read: Start Before Lock\n"); 
     unsigned long tid = (unsigned long) threadId;
     PIN_GetLock(&pinLock, tid);
+    // if(tid >= 2) {
+    //     printf("Read: Start After Lock\n"); 
+    // }
+
+    uint64_t coreId = ((uint64_t) threadId) - 2;
+    
     // Only threadIds greater than 2 represent the execution we care about
     
     if (tid >= 2) {
         fprintf(trace,"%p: R %p id %p\n", ip, addr, threadId);
+        // printf("Read: CoreId: %li Addr: %p \n", coreId, addr);
+
+        Read_tuple result = cache->cache_read(coreId, (uint64_t)addr); 
+
+        // printf("After result %d\n", result.speculated); 
+        uint64_t valid_data = result.valid_data; 
+        uint64_t invalid_data = result.invalid_data; 
+        if(result.speculated && !result.not_in_system) {
+            speculative_revert = true; 
+            ((int *) (addr))[0] = invalid_data; 
+
+            // Store it in the global Revert Map
+            revert_map.insert(std::pair<uint64_t, uint64_t>((uint64_t)addr, valid_data)); 
+        }
     }
     
     // TODO: Do speculative memory modification, if necessary
@@ -82,18 +107,55 @@ VOID RecordMemRead(VOID * ip, VOID * addr, VOID *threadId)
     // Read from Cache. If speculative, *addr = spec value. Exec mem read, reads the spec value
     // [1, 2, 3] => [2, 2, 3]
 
+
+
+    // if(tid >= 2) {
+    //     printf("Read: End Before Lock\n"); 
+    // }
     PIN_ReleaseLock(&pinLock);
+    // printf("Read: End After Lock\n"); 
 }
 
 // TODO: After memory read occurs, do the revert
 // *addr = old memory value
 // FIX at addr, data b
- 
+ // Occurs after memory access
+VOID RecordMemReadAfter(VOID * ip, VOID * addr, VOID *threadId)
+{
+    // printf("Read: Start Before Lock\n"); 
+    unsigned long tid = (unsigned long) threadId;
+    PIN_GetLock(&pinLock, tid);
+
+    // uint64_t coreId = ((uint64_t) threadId) - 2;
+    
+    // Only threadIds greater than 2 represent the execution we care about
+    
+    if (tid >= 2) {
+        fprintf(trace,"%p: R %p id %p\n", ip, addr, threadId);
+        std::map<uint64_t, uint64_t>::iterator entry; 
+        int count = 0; 
+        for(entry = revert_map.begin(); entry != revert_map.end(); ++entry) {
+            count += 1; 
+            uint64_t valid_address_revert = entry->first; 
+            uint64_t valid_data_revert = entry->second; 
+            ((int *) (valid_address_revert))[0] = valid_data_revert;  
+        }
+        if(count > 1) {
+            printf("Mem Read After: More than one revert\n"); 
+        }
+    }
+
+    PIN_ReleaseLock(&pinLock);
+    // printf("Read: End After Lock\n"); 
+}
+
 // Print a memory write record
 VOID RecordMemWrite(VOID * ip, VOID * addr, VOID *data_size, VOID *threadId)
-{    
+{   
+    
     uint64_t tid = (uint64_t) threadId;
     PIN_GetLock(&pinLock, tid);
+    // printf("Write\n"); 
 
     uint64_t coreId = ((uint64_t) threadId) - 2;
     ADDRINT *addr_ptr = (ADDRINT *)addr;
@@ -101,20 +163,23 @@ VOID RecordMemWrite(VOID * ip, VOID * addr, VOID *data_size, VOID *threadId)
     PIN_SafeCopy(&value, addr_ptr, sizeof(ADDRINT));
     uint64_t data = value;
 
-    // printf("Record write %p %li %li\n", addr, data, coreId);
+    // printf("Record write %li %p %li \n", coreId, addr, data);
 
     if (tid >= 2) {
         if (cache == NULL) {
-            // printf("CACHE WAS NULL");
+            printf("CACHE WAS NULL\n");
         } else {
             // printf("WRITE %p\n", addr);
             fprintf(trace,"%p: W %p\n", ip, addr); // , threadId);
-            // printf("Spec percent: %f", cache->speculation_percent);
+            // printf("Spec percent: %f\n", cache->speculation_percent);
+            // printf("Record write %li %p %li \n", coreId, addr, data);
             cache->cache_write(coreId, (uint64_t) addr, data);
+            // printf("End cache->cache_write\n"); 
         }
     }
-
+    // printf("End Write\n\n");
     PIN_ReleaseLock(&pinLock);
+     
 }
 
 // Pin calls this function every time a new instruction is encountered
@@ -125,6 +190,14 @@ VOID Instruction(INS ins, VOID *v) // Instrumentation
     //
     // On the IA-32 and Intel(R) 64 architectures conditional moves and REP 
     // prefixed instructions appear as predicated instructions in Pin.
+    
+    // printf("Hello\n"); 
+    // if(cache == NULL) {
+    //     printf("BAD CACHE\n "); 
+    // }
+    // cache->cache_write(0, 0, 100); 
+    // printf("Bye\n"); 
+
     UINT32 memOperands = INS_MemoryOperandCount(ins);
  
     // Iterate over each memory operand of the instruction.
@@ -132,13 +205,26 @@ VOID Instruction(INS ins, VOID *v) // Instrumentation
     {
         if (INS_MemoryOperandIsRead(ins, memOp))
         {
-            INS_InsertPredicatedCall(
+            if (INS_IsValidForIpointAfter(ins)) {
+                INS_InsertPredicatedCall(
                 ins, IPOINT_BEFORE, (AFUNPTR)RecordMemRead,
                 IARG_INST_PTR,
                 IARG_MEMORYOP_EA, 
                 memOp,
                 IARG_THREAD_ID, 
                 IARG_END);
+
+            
+                INS_InsertPredicatedCall(
+                ins, IPOINT_AFTER, (AFUNPTR)RecordMemReadAfter,
+                IARG_INST_PTR,
+
+                IARG_MEMORYOP_EA, 
+                memOp,
+                
+                IARG_THREAD_ID, 
+                IARG_END);
+            }
         }
         // Note that in some architectures a single memory operand can be 
         // both read and written (for instance incl (%eax) on IA-32)
@@ -159,6 +245,8 @@ VOID Instruction(INS ins, VOID *v) // Instrumentation
 
                     IARG_THREAD_ID, 
                     IARG_END);
+
+                
                 // INS_InsertPredicatedCall(
                 //     ins, IPOINT_AFTER, (AFUNPTR)RecordMemWriteAfter,
                 //     IARG_INST_PTR,
@@ -171,6 +259,8 @@ VOID Instruction(INS ins, VOID *v) // Instrumentation
                 //     IARG_END);
             }
         }
+
+
     }
 }
 
