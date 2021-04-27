@@ -60,7 +60,7 @@ static UINT64 icount = 0;
 // This function is called before every instruction is executed    
 FILE * trace;
 
-// Print a memory read record
+// Occurs before memory access
 VOID RecordMemRead(VOID * ip, VOID * addr, VOID *threadId)
 {
     
@@ -72,10 +72,22 @@ VOID RecordMemRead(VOID * ip, VOID * addr, VOID *threadId)
         fprintf(trace,"%p: R %p id %p\n", ip, addr, threadId);
     }
     
+    // TODO: Do speculative memory modification, if necessary
     // Read_tuple cache_read();
+    // data a, data b;
+    // Write into memory @addr, data a
+    // PIN runs in Pin mem, Code runs in exec mem
+    // addr pointer: points to exec mem
+    // Cache simulates execution memory
+    // Read from Cache. If speculative, *addr = spec value. Exec mem read, reads the spec value
+    // [1, 2, 3] => [2, 2, 3]
 
     PIN_ReleaseLock(&pinLock);
 }
+
+// TODO: After memory read occurs, do the revert
+// *addr = old memory value
+// FIX at addr, data b
  
 // Print a memory write record
 VOID RecordMemWrite(VOID * ip, VOID * addr, VOID *data_size, VOID *threadId)
@@ -147,6 +159,16 @@ VOID Instruction(INS ins, VOID *v) // Instrumentation
 
                     IARG_THREAD_ID, 
                     IARG_END);
+                // INS_InsertPredicatedCall(
+                //     ins, IPOINT_AFTER, (AFUNPTR)RecordMemWriteAfter,
+                //     IARG_INST_PTR,
+
+                //     IARG_MEMORYOP_EA, 
+                //     memOp,
+                //     IARG_MEMORYWRITE_SIZE,
+
+                //     IARG_THREAD_ID, 
+                //     IARG_END);
             }
         }
     }
