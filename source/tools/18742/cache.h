@@ -13,8 +13,8 @@
 #define WRITE_TO_MEMORY_CYCLES 100
 
 // // Buffer Sizes 
-#define NUM_BLOCKS 4
-#define BLOCK_SIZE 2
+#define NUM_BLOCKS 64
+#define BLOCK_SIZE 6
 #define ADDR_SIZE 64
 
 // // L1 Cache parameters 
@@ -29,9 +29,9 @@
 // #define ADDR_SIZE 64
 
 #define L1_SET_ASSOCIATIVITY 2
-#define L1_NUM_SETS 2
+#define L1_NUM_SETS 64
 #define LLC_SET_ASSOCIATIVITY 2
-#define LLC_NUM_SETS 16
+#define LLC_NUM_SETS 256
 
 // // Buffer Sizes 
 // #define BLOCK_SIZE 5

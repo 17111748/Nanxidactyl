@@ -90,6 +90,11 @@ void *main_func(void *arg) {
     Matrix::matrix *matrixBPtr = &matrixB;
     Matrix::matrix* matrixCWTPtr = &matrixCWT;
 
+    matrixA.print();
+    matrixB.print();
+    matrixCWT.print();
+    
+
     std::cout << "\n[+] Multithreaded calculation started. \n[*] Calculating...";
     auto startWT = high_resolution_clock::now();
     threadedmult(matrixCWTPtr, matrixAPtr, matrixBPtr);
@@ -113,10 +118,13 @@ int main()
     std::cout << "Matrix multiplication\n";
     /*time_t startWOT, stopWOT, startWT, stopWT;*/
 
-    matrixA.createRandomMatrix();
-    matrixB.createRandomMatrix();
+    // matrixA.createRandomMatrix();
+    // matrixB.createRandomMatrix();
+    matrixA.createAllOnes(); 
+    matrixB.createAllOnes(); 
     matrixCWT.createEmptyMatrix();
     matrixCWOT.createEmptyMatrix();
+
 
     // Only start pin trace after setting up problem space
 

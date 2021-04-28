@@ -54,9 +54,8 @@ pin_data_t pin_data;
 Cache_system* cache = NULL;
 
 // Speculated to revert back to original 
-bool speculative_revert = false;
-std::map<uint64_t, uint64_t> revert_map; // Stores Address and Data 
-
+bool speculated_revert = false;
+std::map<unsigned long, uint64_t> revert_map; // Stores Address and Data 
 
 // The running count of instructions is kept here
 // make it static to help the compiler optimize docount
@@ -65,36 +64,61 @@ static UINT64 icount = 0;
 // This function is called before every instruction is executed    
 FILE * trace;
 
+
+bool memory_bound(uint64_t address) {
+    bool A_true = (pin_data.addr_A <= address && address < (pin_data.addr_A + pin_data.A_length*sizeof(float))); 
+    bool B_true = (pin_data.addr_B <= address && address < (pin_data.addr_B + pin_data.B_length*sizeof(float))); 
+    
+    if(A_true || B_true) {
+        return true; 
+    }
+    else {
+        return false; 
+    }
+}
+
 // Occurs before memory access
 VOID RecordMemRead(VOID * ip, VOID * addr, VOID *threadId)
 {
-    // printf("Read: Start Before Lock\n"); 
+    
     unsigned long tid = (unsigned long) threadId;
     PIN_GetLock(&pinLock, tid);
-    // if(tid >= 2) {
-    //     printf("Read: Start After Lock\n"); 
-    // }
-
-    uint64_t coreId = ((uint64_t) threadId) - 2;
-    
     // Only threadIds greater than 2 represent the execution we care about
-    
+    uint64_t coreId = ((uint64_t) threadId) - 2;
+
     if (tid >= 2) {
         fprintf(trace,"%p: R %p id %p\n", ip, addr, threadId);
-        // printf("Read: CoreId: %li Addr: %p \n", coreId, addr);
+        unsigned long addr_converted = (unsigned long)addr; 
+        // printf("Address Converted: %lx\n", addr_converted); 
+        // printf("Addr_A: %lx, A_length %d, Addr_B: %lx, B_length: %d\n\n", pin_data.addr_A, pin_data.A_length, pin_data.addr_B, pin_data.B_length); 
+        // printf("Address: %li\n", (uint64_t) addr); 
+        // if(memory_bound(addr_converted)) {
+        //     printf("Address Converted: %lx\n", addr_converted); 
+        //     ((float *) (addr))[0] = 2; 
+        //     printf("Editted 2 ... tid: %li\n", tid); 
+        //     speculated = true; 
+        // }
 
-        Read_tuple result = cache->cache_read(coreId, (uint64_t)addr); 
+        if(memory_bound(addr_converted)) {
+            // uint64_t valid_data = 1; 
+            // uint64_t invalid_data = 2; 
+            // ((float *) (addr))[0] = invalid_data; 
+            // revert_map.insert(std::pair<unsigned long, uint64_t>(addr_converted, valid_data)); 
+            // speculated_revert = true; 
 
-        // printf("After result %d\n", result.speculated); 
-        uint64_t valid_data = result.valid_data; 
-        uint64_t invalid_data = result.invalid_data; 
-        if(result.speculated && !result.not_in_system) {
-            speculative_revert = true; 
-            ((int *) (addr))[0] = invalid_data; 
+            Read_tuple result = cache->cache_read(coreId, (uint64_t)addr); 
 
-            // Store it in the global Revert Map
-            revert_map.insert(std::pair<uint64_t, uint64_t>((uint64_t)addr, valid_data)); 
+            uint64_t valid_data = result.valid_data; 
+            uint64_t invalid_data = result.invalid_data; 
+            if(result.speculated && !result.not_in_system) {
+                ((float *) (addr))[0] = invalid_data; 
+                // Store it in the global Revert Map
+                printf("SPECULATED\n"); 
+                revert_map.insert(std::pair<unsigned long, uint64_t>(addr_converted, valid_data)); 
+                speculated_revert = true; 
+            }
         }
+
     }
     
     // TODO: Do speculative memory modification, if necessary
@@ -107,79 +131,90 @@ VOID RecordMemRead(VOID * ip, VOID * addr, VOID *threadId)
     // Read from Cache. If speculative, *addr = spec value. Exec mem read, reads the spec value
     // [1, 2, 3] => [2, 2, 3]
 
-
-
-    // if(tid >= 2) {
-    //     printf("Read: End Before Lock\n"); 
-    // }
     PIN_ReleaseLock(&pinLock);
-    // printf("Read: End After Lock\n"); 
 }
 
 // TODO: After memory read occurs, do the revert
 // *addr = old memory value
 // FIX at addr, data b
- // Occurs after memory access
 VOID RecordMemReadAfter(VOID * ip, VOID * addr, VOID *threadId)
 {
     // printf("Read: Start Before Lock\n"); 
     unsigned long tid = (unsigned long) threadId;
     PIN_GetLock(&pinLock, tid);
+    // if(tid >= 2) {
+    //     printf("ReadAfter: End Before Lock\n"); 
+    // }
 
     // uint64_t coreId = ((uint64_t) threadId) - 2;
     
     // Only threadIds greater than 2 represent the execution we care about
-    
     if (tid >= 2) {
         fprintf(trace,"%p: R %p id %p\n", ip, addr, threadId);
-        std::map<uint64_t, uint64_t>::iterator entry; 
-        int count = 0; 
-        for(entry = revert_map.begin(); entry != revert_map.end(); ++entry) {
-            count += 1; 
-            uint64_t valid_address_revert = entry->first; 
-            uint64_t valid_data_revert = entry->second; 
-            ((int *) (valid_address_revert))[0] = valid_data_revert;  
+
+        unsigned long addr_converted = (unsigned long)addr; 
+        // printf("Address Converted: %lx\n", addr_converted); 
+        // printf("Addr_A: %lx, A_length %d, Addr_B: %lx, B_length: %d\n\n", pin_data.addr_A, pin_data.A_length, pin_data.addr_B, pin_data.B_length); 
+        // printf("Address: %li\n", (uint64_t) addr); 
+        // if(speculated && memory_bound(addr_converted)) {
+        //     printf("Address Converted: %lx\n", addr_converted); 
+        //     ((float *) (addr))[0] = 1; 
+        //     printf("Editted 1 ... tid: %li\n", tid); 
+        //     speculated = false; 
+        // }
+
+        if(speculated_revert && memory_bound(addr_converted)) {
+            std::map<unsigned long, uint64_t>::iterator entry; 
+            int count = 0; 
+            for(entry = revert_map.begin(); entry != revert_map.end(); ++entry) {
+                count += 1; 
+                unsigned long valid_address_revert = entry->first; 
+                uint64_t valid_data_revert = entry->second; 
+                ((float *) (valid_address_revert))[0] = valid_data_revert;  
+            }
+            if(count > 1) {
+                printf("Mem Read After: More than one revert\n"); 
+            }
+            revert_map.clear(); 
+            speculated_revert = false; 
         }
-        if(count > 1) {
-            printf("Mem Read After: More than one revert\n"); 
-        }
+        
+        // printf("Read After: End\n");
     }
 
+    // if(tid >= 2) {
+    //     printf("ReadAfter: End Before Lock\n"); 
+    // }
     PIN_ReleaseLock(&pinLock);
     // printf("Read: End After Lock\n"); 
 }
 
 // Print a memory write record
 VOID RecordMemWrite(VOID * ip, VOID * addr, VOID *data_size, VOID *threadId)
-{   
-    
+{    
     uint64_t tid = (uint64_t) threadId;
     PIN_GetLock(&pinLock, tid);
-    // printf("Write\n"); 
 
     uint64_t coreId = ((uint64_t) threadId) - 2;
     ADDRINT *addr_ptr = (ADDRINT *)addr;
     ADDRINT value;
     PIN_SafeCopy(&value, addr_ptr, sizeof(ADDRINT));
-    uint64_t data = value;
+    uint64_t data = (uint64_t)value;
 
-    // printf("Record write %li %p %li \n", coreId, addr, data);
+    // printf("Record write %p %li %li\n", addr, data, coreId);
 
     if (tid >= 2) {
         if (cache == NULL) {
-            printf("CACHE WAS NULL\n");
+            // printf("CACHE WAS NULL");
         } else {
             // printf("WRITE %p\n", addr);
             fprintf(trace,"%p: W %p\n", ip, addr); // , threadId);
-            // printf("Spec percent: %f\n", cache->speculation_percent);
-            // printf("Record write %li %p %li \n", coreId, addr, data);
+            // printf("Spec percent: %f", cache->speculation_percent);
             cache->cache_write(coreId, (uint64_t) addr, data);
-            // printf("End cache->cache_write\n"); 
         }
     }
-    // printf("End Write\n\n");
+
     PIN_ReleaseLock(&pinLock);
-     
 }
 
 // Pin calls this function every time a new instruction is encountered
@@ -190,14 +225,6 @@ VOID Instruction(INS ins, VOID *v) // Instrumentation
     //
     // On the IA-32 and Intel(R) 64 architectures conditional moves and REP 
     // prefixed instructions appear as predicated instructions in Pin.
-    
-    // printf("Hello\n"); 
-    // if(cache == NULL) {
-    //     printf("BAD CACHE\n "); 
-    // }
-    // cache->cache_write(0, 0, 100); 
-    // printf("Bye\n"); 
-
     UINT32 memOperands = INS_MemoryOperandCount(ins);
  
     // Iterate over each memory operand of the instruction.
@@ -245,8 +272,6 @@ VOID Instruction(INS ins, VOID *v) // Instrumentation
 
                     IARG_THREAD_ID, 
                     IARG_END);
-
-                
                 // INS_InsertPredicatedCall(
                 //     ins, IPOINT_AFTER, (AFUNPTR)RecordMemWriteAfter,
                 //     IARG_INST_PTR,
@@ -259,8 +284,6 @@ VOID Instruction(INS ins, VOID *v) // Instrumentation
                 //     IARG_END);
             }
         }
-
-
     }
 }
 
@@ -290,13 +313,13 @@ INT32 Usage()
 void fillFuncMap(IMG img, std::string s) {
     // Iterates through all of the symbols in the images
     for( SYM sym= IMG_RegsymHead(img); SYM_Valid(sym); sym = SYM_Next(sym) ) {
-        if (PIN_UndecorateSymbolName(SYM_Name(sym), UNDECORATION_NAME_ONLY) == s.c_str()) {
-            RTN addressRtn = RTN_FindByName(img, SYM_Name(sym).c_str());
+        if (PIN_UndecorateSymbolName(SYM_Name(sym), UNDECORATION_NAME_ONLY) == s.c_str()) { // Unannotated C++ 
+            RTN addressRtn = RTN_FindByName(img, SYM_Name(sym).c_str()); // Physically find the Pin routine that corresponds to func
 
             if (addressRtn.is_valid()) {
                 std::cout << "Address RTN found" << std::endl;
                 RTN_Open(addressRtn);
-                AFUNPTR app = RTN_Funptr(addressRtn);
+                AFUNPTR app = RTN_Funptr(addressRtn); // function pointer
 
                 // Insert the function address a dictionary
                 funcMap[PIN_UndecorateSymbolName(SYM_Name(sym), UNDECORATION_NAME_ONLY).c_str()] = (unsigned long) app; // Put the function pointer into the images

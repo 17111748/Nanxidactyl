@@ -1,2 +1,2 @@
 all: MatrixMultiply.cpp Matrix.h Matrix.cpp 
-	g++ MatrixMultiply.cpp Matrix.h Matrix.cpp -pthread
+	g++ -std=c++11 MatrixMultiply.cpp Matrix.h Matrix.cpp -pthread

@@ -11,34 +11,43 @@ using namespace Matrix;
 // => 0, 1, 2, 3, 4, 5
 // => numberOfColumns * currentRow + currentColumn
 
-	void matrix::createRandomMatrix() {
-		matrix = new float[m*n];
-		for (int r = 0; r < m; r++) {
-			for (int c = 0; c < n; c++) {
-				matrix[n*r+c] = rand() % 10;
-			}
+void matrix::createRandomMatrix() {
+	matrix = new float[m*n];
+	for (int r = 0; r < m; r++) {
+		for (int c = 0; c < n; c++) {
+			matrix[n*r+c] = rand() % 10;
 		}
 	}
+}
 
-	void matrix::createEmptyMatrix() {
-		matrix = new float[m*n];
-		for (int r = 0; r < m; r++) {
-			for (int c = 0; c < n; c++) {
-				matrix[n * r + c] = 0;
-			}
+void matrix::createEmptyMatrix() {
+	matrix = new float[m*n];
+	for (int r = 0; r < m; r++) {
+		for (int c = 0; c < n; c++) {
+			matrix[n * r + c] = 0;
 		}
 	}
+}
 
-	void matrix::print() {
-		for (int r = 0; r < m; r++) {
-			for (int c = 0; c < n; c++) {
-				std::cout << matrix[n * r + c] << " ";
-			}
-			std::cout << "\n";
+void matrix::createAllOnes() {
+	matrix = new float[m*n];
+	for (int r = 0; r < m; r++) {
+		for (int c = 0; c < n; c++) {
+			matrix[n * r + c] = 1;
+		}
+	}
+}
+
+void matrix::print() {
+	for (int r = 0; r < m; r++) {
+		for (int c = 0; c < n; c++) {
+			std::cout << matrix[n * r + c] << " ";
 		}
 		std::cout << "\n";
 	}
+	std::cout << "\n";
+}
 
-	void matrix::deleteMatrix() {
-		delete[] matrix;
-	}
+void matrix::deleteMatrix() {
+	delete[] matrix;
+}

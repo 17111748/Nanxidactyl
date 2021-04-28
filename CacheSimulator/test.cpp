@@ -445,6 +445,8 @@ Read_tuple Cache_system::cache_read(uint8_t coreID, uint64_t addr){
         std::vector<uint64_t> addr_info = llc.address_convert(addr); 
         uint64_t tag = addr_info[0]; 
         uint64_t set_index = addr_info[1]; 
+        uint64_t block_index = addr_info[2]; 
+        
         Set set = llc.sets[set_index]; 
 
         for (int i = 0; i < set.lines.size(); i++) {
