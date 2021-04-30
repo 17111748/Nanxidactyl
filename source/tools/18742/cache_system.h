@@ -7,6 +7,19 @@
 #define ROLLBACK_CYCLES 100 
 #define SUCCESS_CYCLES 30 
 
+void printLine(Line l) {
+    printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+    printf("Printing Line: State: %d, Tag: %li\n", l.state, l.tag); 
+    for(unsigned int i = 0; i < l.data.size(); i++) {
+        if(l.data[i] != 0){
+            printf("DataOffset %d: %li\n", i, l.data[i]); 
+        }
+        // printf("DataOffset %d: %li\n", i, l.data[i]);
+    }
+    // printf("Time Accessed: %li\n", l.time_accessed); 
+    printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+}
+
 // Magic Memory Address Range index by 2
 // Allowed Addresses to perform Victimized Protocol
 // Address booking: keeps track of the address ranges that can tolerate approximation
@@ -24,7 +37,7 @@ class Magic_memory {
         // Magic_memory(std::vector<std::vector<uint64_t>> addresses_param) {addresses = addresses_param;}  
 
         bool check_address(uint64_t address) {
-            printf("Check address: %lx\n", address);
+            
             if (this->addresses.size() % 2 != 0) {
                 printf("Magic Memory not given 2n values (paired ranges)\n");
             }
@@ -34,10 +47,13 @@ class Magic_memory {
                     printf("Magic memory pair a is not less than or equal to b\n");
                 }
 
-                if(address >= this->addresses[i] && address < this->addresses[i]) {
+                if(address >= this->addresses[i] && address < this->addresses[i+1]) {
+                    // printf("Check address TRUE: %lx\n", address);
                     return true; 
                 }
             }
+            // printf("Check address FALSE: %lx\n", address);
+            // printf("psum start: %lx, psum end: %lx\n", this->addresses[0], this->addresses[1]); 
             return false; // Address not allowed
         }; 
 }; 
@@ -210,7 +226,10 @@ class Cache_system {
             uint64_t tag = addr_info[0]; 
             uint64_t set_index = addr_info[1]; 
             uint64_t block_index = addr_info[2]; 
-            // printf("Cache Write: Finish Address Convert: Tag: %li, Set: %li, Block: %li\n", tag, set_index, block_index);
+
+            
+            // printf("cache_write: Finish Address Convert: Tag: %li, Set: %li, Block: %li\n", tag, set_index, block_index);
+
 
             // Check cache[coreID] for the address -- gives set <Line1, Line2, Line3, ...>
             // Compare tags -- see if address is in the set at all -- gives line <tag, valid, dirty, state> (Hit/Miss)
@@ -219,7 +238,12 @@ class Cache_system {
             
             // cout << "coreid: " << unsigned(coreID) << endl; 
             if (line_info.found) {
-                // printf("Cache Write: inside the cache (Hit)\n"); 
+                // printf("cache_write: inside the cache (Hit)\n"); 
+
+                // printf("Core: %d\n", coreID); 
+                // printLine(caches[coreID].sets[3].lines[0]); 
+                // printf("\n"); 
+
                 caches[coreID].cache_stats.num_writes_hits += 1;
                 Line *line = line_info.line_ptr; 
                 line->time_accessed = global_time; 
@@ -257,10 +281,13 @@ class Cache_system {
                                     bool speculate = result < speculation_percent;
 
                                     if (speculate) {
+                                        // printf("~~~~~~~~~~~~~~~~~~~~cache_write: HIT SPECUALTED~~~~~~~~~~~~~~~~~\n"); 
                                         stats.speculate_cases += 1; 
                                         if(magic_memory.check_address(addr)) {
+                                            // printf("cache_write: other_line coreID: %d, state: %d\n", core_index, other_line->state);
                                             stats.success_addr_bound += 1; 
                                             other_line->state = VICTIMIZED;
+                                            // printf("cache_write: other_line coreID: %d, state: %d\n", core_index, other_line->state);
                                         }
                                         else {
                                             stats.failed_addr_bound += 1; 
@@ -345,10 +372,13 @@ class Cache_system {
                                 bool speculate = result < speculation_percent;
 
                                 if (speculate) {
+                                    printf("~~~~~~~~~~~~~~~~~~~~cache_write: MISS SPECUALTED~~~~~~~~~~~~~~~~~\n"); 
                                     stats.speculate_cases += 1; 
                                     if(magic_memory.check_address(addr)) {
+                                        printf("cache_write: other_line coreID: %d, state: %d\n", core_index, other_line->state); 
                                         stats.success_addr_bound += 1; 
                                         other_line->state = VICTIMIZED;
+                                         printf("cache_write: other_line coreID: %d, state: %d\n", core_index, other_line->state); 
                                     }
                                     else {
                                         stats.failed_addr_bound += 1; 
@@ -381,6 +411,10 @@ class Cache_system {
             // Check cache[coreID] for the address -- gives set <Line1, Line2, Line3, ...
             // Compare tags -- see if address is in the set at all -- gives line <tag, valid, dirty, state> (Hit/Miss)
             Line_result line_info = lookup_line(addr, coreID, false); 
+
+            // printf("cache_read: Finish Address Convert: Tag: %li, Set: %li, Block: %li\n", tag, set_index, block_index);
+
+    
             // cout << "In Cache Read: " << boolalpha << line_info.found << "\n" << endl; 
             // If the address matches the L1 Cache 
             bool access_llc_flag = true; 
@@ -389,7 +423,12 @@ class Cache_system {
             
             
             if (line_info.found) {
-                // printf("Cache Read: Cache Hit\n"); 
+                // printf("cache_read: inside the cache (Hit)\n"); 
+
+                // printf("Core: %d\n", coreID); 
+                // printLine(caches[coreID].sets[4].lines[0]); 
+                // printf("\n"); 
+
                 caches[coreID].cache_stats.num_reads_hits += 1; 
                 Line *line = line_info.line_ptr; 
                 line->time_accessed = global_time; 
@@ -407,10 +446,12 @@ class Cache_system {
                     // Set Flag 
                     // Find valid data in other caches 
                 if (line->state == VICTIMIZED) {
+                    printf("~~~~~~~~~~~~~~~~~~`cache_read: read in victimized~~~~~~~~~~~~~~~~~~~\n"); 
                     stats.bus_transactions += 1; 
 
                     uint64_t valid_data = 0; 
                     uint64_t invalid_data = line->data[block_index];
+                    printf("invalid_data: %li\n", invalid_data); 
 
                     for (uint8_t core_index = 0; core_index < num_cores; core_index++){
                         if (core_index != coreID){
@@ -420,14 +461,21 @@ class Cache_system {
                                 caches[core_index].cache_stats.num_access += 1; 
                                 Line *other_line = other_line_info.line_ptr; 
                                 other_line->time_accessed = global_time; 
+
+                                std::vector<uint64_t> addr_info = caches[core_index].address_convert(addr); 
+                                uint64_t other_block_index = addr_info[2]; 
                                 // if in M or S state
                                 if (other_line->state == MODIFIED || other_line->state == SHARED) {
-                                    valid_data = other_line->data[block_index];
+                                    printf("OtherLine State: %d, Data: %li\n", other_line->state, other_line->data[other_block_index]);
+                                    printLine(*other_line); 
+                                    valid_data = other_line->data[other_block_index];
                                     other_line->state = SHARED; 
                                 }
                             }
                         }
                     }
+
+                    printf("valid_data: %li\n", valid_data); 
                     line->state = SHARED;
                     line->data[block_index] = valid_data;
 
@@ -467,6 +515,10 @@ class Cache_system {
                                 caches[core_index].cache_stats.num_access += 1; 
                                 Line *other_line = other_line_info.line_ptr; 
                                 other_line->time_accessed = global_time; 
+                                
+                                std::vector<uint64_t> addr_info = caches[core_index].address_convert(addr); 
+                                uint64_t block_index = addr_info[2]; 
+
                                 // if in M or S state
                                 if (other_line->state == MODIFIED || other_line->state == SHARED) {
                                     valid_data = other_line->data[block_index];
