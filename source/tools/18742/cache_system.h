@@ -11,10 +11,10 @@ void printLine(Line l) {
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
     printf("Printing Line: State: %d, Tag: %li\n", l.state, l.tag); 
     for(unsigned int i = 0; i < l.data.size(); i++) {
-        if(l.data[i] != 0){
-            printf("DataOffset %d: %li\n", i, l.data[i]); 
-        }
-        // printf("DataOffset %d: %li\n", i, l.data[i]);
+        // if(l.data[i] != 0){
+        //     printf("DataOffset %d: %li\n", i, l.data[i]); 
+        // }
+        printf("DataOffset %d: %li\n", i, l.data[i]);
     }
     // printf("Time Accessed: %li\n", l.time_accessed); 
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
@@ -280,6 +280,11 @@ class Cache_system {
                                     double result = (double)((double)(rand() % 100) / (double)100);
                                     bool speculate = result < speculation_percent;
 
+                                    // Copy the cache contents over 
+                                    if(other_line->state == MODIFIED) {
+                                        line->data = other_line->data; 
+                                    }
+                                    
                                     if (speculate) {
                                         // printf("~~~~~~~~~~~~~~~~~~~~cache_write: HIT SPECUALTED~~~~~~~~~~~~~~~~~\n"); 
                                         stats.speculate_cases += 1; 
@@ -331,27 +336,7 @@ class Cache_system {
                 // printf("Cache Write: Update LLC\n");
                 update_llc(addr, data); 
                 // printf("Cache Write: After update llc \n");
-                // If the cache isn't full. 
-                if(set.lines.size() < L1_SET_ASSOCIATIVITY) {
-                    // cout << "False, cache is not full: " << endl; 
-                    // printf("Cache Write: cache is not full\n");
-                    caches[coreID].sets[set_index].lines.push_back(new_line); 
-                }
-                // If the cache is full... Evict a cache line and replace it with LLC Line. 
-                else {
-                    // printf("Cache Write: cache is full\n");
-                    int LRU_index = 0; 
-                    uint64_t LRU_time = set.lines[0].time_accessed;
-                    for (uint8_t i = 1; i < set.lines.size(); i++) {
-                        Line line = set.lines[i]; 
-                        if(line.time_accessed < LRU_time) {
-                            LRU_time = line.time_accessed; 
-                            LRU_index = i; 
-                        }
-                    }
-                    // cout << "LRU Index: " << LRU_index << " time: " << LRU_time << endl; 
-                    caches[coreID].sets[set_index].lines[LRU_index] = new_line; 
-                }
+                
                 // printf("Cache Write: Start checking other caches\n");
                 // Check if it's in other cache and change state 
                 for (uint8_t core_index = 0; core_index < num_cores; core_index++){
@@ -370,6 +355,11 @@ class Cache_system {
                                 // Tune how much of the spculative data 
                                 double result = (double)((double)(rand() % 100) / (double)100);
                                 bool speculate = result < speculation_percent;
+
+                                // Copy the cache contents over 
+                                if(other_line->state == MODIFIED) {
+                                    new_line.data = other_line->data; 
+                                }
 
                                 if (speculate) {
                                     printf("~~~~~~~~~~~~~~~~~~~~cache_write: MISS SPECUALTED~~~~~~~~~~~~~~~~~\n"); 
@@ -391,6 +381,28 @@ class Cache_system {
                             }
                         }
                     }
+                }
+
+                // If the cache isn't full. 
+                if(set.lines.size() < L1_SET_ASSOCIATIVITY) {
+                    // cout << "False, cache is not full: " << endl; 
+                    // printf("Cache Write: cache is not full\n");
+                    caches[coreID].sets[set_index].lines.push_back(new_line); 
+                }
+                // If the cache is full... Evict a cache line and replace it with LLC Line. 
+                else {
+                    // printf("Cache Write: cache is full\n");
+                    int LRU_index = 0; 
+                    uint64_t LRU_time = set.lines[0].time_accessed;
+                    for (uint8_t i = 1; i < set.lines.size(); i++) {
+                        Line line = set.lines[i]; 
+                        if(line.time_accessed < LRU_time) {
+                            LRU_time = line.time_accessed; 
+                            LRU_index = i; 
+                        }
+                    }
+                    // cout << "LRU Index: " << LRU_index << " time: " << LRU_time << endl; 
+                    caches[coreID].sets[set_index].lines[LRU_index] = new_line; 
                 }
             }
             return; 
@@ -446,12 +458,12 @@ class Cache_system {
                     // Set Flag 
                     // Find valid data in other caches 
                 if (line->state == VICTIMIZED) {
-                    printf("~~~~~~~~~~~~~~~~~~`cache_read: read in victimized~~~~~~~~~~~~~~~~~~~\n"); 
+                    // printf("~~~~~~~~~~~~~~~~~~`cache_read: read in victimized~~~~~~~~~~~~~~~~~~~\n"); 
                     stats.bus_transactions += 1; 
 
                     uint64_t valid_data = 0; 
                     uint64_t invalid_data = line->data[block_index];
-                    printf("invalid_data: %li\n", invalid_data); 
+                    // printf("invalid_data: %li\n", invalid_data); 
 
                     for (uint8_t core_index = 0; core_index < num_cores; core_index++){
                         if (core_index != coreID){
@@ -462,13 +474,18 @@ class Cache_system {
                                 Line *other_line = other_line_info.line_ptr; 
                                 other_line->time_accessed = global_time; 
 
-                                std::vector<uint64_t> addr_info = caches[core_index].address_convert(addr); 
-                                uint64_t other_block_index = addr_info[2]; 
+                                
                                 // if in M or S state
                                 if (other_line->state == MODIFIED || other_line->state == SHARED) {
-                                    printf("OtherLine State: %d, Data: %li\n", other_line->state, other_line->data[other_block_index]);
+                                    // printf("OtherLine State: %d, Data: %li\n", other_line->state, other_line->data[block_index]);
                                     printLine(*other_line); 
-                                    valid_data = other_line->data[other_block_index];
+
+                                    // Copy the cache contents over 
+                                    if(other_line->state == MODIFIED) {
+                                        line->data = other_line->data; 
+                                    }
+
+                                    valid_data = other_line->data[block_index];
                                     other_line->state = SHARED; 
                                 }
                             }
@@ -521,6 +538,12 @@ class Cache_system {
 
                                 // if in M or S state
                                 if (other_line->state == MODIFIED || other_line->state == SHARED) {
+
+                                    // Copy the cache contents over 
+                                    if(other_line->state == MODIFIED) {
+                                        line->data = other_line->data; 
+                                    }
+
                                     valid_data = other_line->data[block_index];
                                     other_line->state = SHARED; 
                                     access_llc_flag = false; 
@@ -625,6 +648,11 @@ class Cache_system {
                             // if in M state
                             if (other_line->state == MODIFIED) {
                                 other_line->state = SHARED; 
+
+                                if(other_line->data != LLC_line.data) {
+                                    printf("ERROR!!!!..... cache_read: other_line != LLC_line\n");
+                                }
+                                other_line->data = LLC_line.data; 
                             }
                         }
                     }

@@ -58,7 +58,7 @@ class Line {
         Line(cache_states state, uint64_t tag, uint64_t data, uint64_t time_accessed, uint8_t block_index) {
             this->state = state; 
             this->tag = tag; 
-            this->data = std::vector<uint64_t>(NUM_BLOCKS, 0); 
+            this->data = std::vector<uint64_t>(NUM_BLOCKS/8, 0); 
             this->data[block_index] = data;
             this->time_accessed = time_accessed;
         };
@@ -143,10 +143,12 @@ class Cache {
             uint64_t index = (addr << tag_length) >> (tag_length + BLOCK_SIZE); 
             uint64_t block = addr << (ADDR_SIZE - BLOCK_SIZE) >> (ADDR_SIZE - BLOCK_SIZE);
 
+            uint64_t block_index = block/8; 
+
             std::vector<uint64_t> result; 
             result.push_back(tag); 
             result.push_back(index); 
-            result.push_back(block); 
+            result.push_back(block_index); 
             // printf("Address Convert: Tag: %li, Set: %li, Block: %li\n", tag, index, block);
             return result; 
 
