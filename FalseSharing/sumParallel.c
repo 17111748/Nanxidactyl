@@ -17,8 +17,8 @@
 #include <pthread.h>
 #include <stdio.h>
 
-#define THREAD_COUNT 2
-#define ELEMENT_COUNT 10000
+#define THREAD_COUNT 100
+#define ELEMENT_COUNT 100000
 
 // GLOBALS ACCESSABLE
 
@@ -121,9 +121,9 @@ void *main_func(void *arg) {
     // for(i = 0; i < ELEMENT_COUNT; i++) {
     //     printf("i: %d, A[i]: %li\n", i, A[i]); 
     // }
-    for(i = 0; i < THREAD_COUNT; i++) {
-        printf("i: %d, psum[i]: %li\n", i, psum[i]); 
-    }
+    // for(i = 0; i < THREAD_COUNT; i++) {
+    //     printf("i: %d, psum[i]: %li\n", i, psum[i]); 
+    // }
 
     printf("\n[+] Multithreaded calculation started. \n[*] Calculating...");
 
@@ -150,7 +150,7 @@ void *main_func(void *arg) {
     // }
     printf("\n"); 
     for(i = 0; i < THREAD_COUNT; i++) {
-        printf("i: %d, psum[i]: %li\n", i, psum[i]); 
+        // printf("i: %d, psum[i]: %li\n", i, psum[i]); 
         sum += psum[i]; 
     }
     // Print the summation

@@ -33,10 +33,6 @@
 #define LLC_SET_ASSOCIATIVITY 2
 #define LLC_NUM_SETS 256
 
-// // Buffer Sizes 
-// #define BLOCK_SIZE 5
-// #define ADDR_SIZE 64
-
 // Different Cache States for the cache coherence protocol 
 enum cache_states {INVALID, SHARED, VICTIMIZED, MODIFIED}; 
 

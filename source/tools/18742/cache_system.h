@@ -60,10 +60,10 @@ class Magic_memory {
 
 class System_stats {
     public: 
-        uint64_t rollback; 
-        uint64_t success; 
-        uint64_t success_addr_bound; // success_addr_bound ~= success + rollback
-        uint64_t failed_addr_bound;
+        uint64_t rollback; // in read: doesn't pass the accuracy test
+        uint64_t success; // in write: passes the accuracy test 
+        uint64_t success_addr_bound; // success_addr_bound: in write: goes into victimized state
+        uint64_t failed_addr_bound; // failed addr_bound: in write: goes into invalid state
 
         uint64_t speculate_cases; // speculate_case = success_addr_bound + fail_address_bound
         uint64_t total_cases; 
@@ -135,14 +135,29 @@ class Cache_system {
             this->magic_memory = Magic_memory(addresses); 
             this->stats = System_stats(); 
         };
+        
+        void print_system_stats() {
+            printf("~~~~~~~~~~~~~~~Printing System Stats~~~~~~~~~~~~~~~~~~~~~\n"); 
+            printf("Rollback: %li\n", stats.rollback); 
+            printf("Success: %li\n", stats.success); 
+            printf("Success Address Bound: %li\n", stats.success_addr_bound); 
+            printf("Failed Address Bound: %li\n", stats.failed_addr_bound); 
+            printf("Speculated Cases: %li\n", stats.speculate_cases); 
+            printf("Total Cases: %li\n", stats.total_cases);
+            printf("Bus Transactions: %li\n", stats.bus_transactions);  
+            printf("~~~~~~~~~~~~~~~~~~~~~End Print~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+        }
 
         bool within_threshold(uint64_t valid, uint64_t invalid) {
+            printf("Valid Data: %li, invalid data: %li\n", valid, invalid); 
+
+
             if(valid == 0 && invalid == 0) {
                 return true; 
             }
 
-            double percentDiff = ((((double)invalid - (double)valid) / (double)valid) * 100); 
-
+            double percentDiff = ((  abs((double)invalid - (double)valid) / (double)valid) * 100); 
+            printf("percent Diff %f\n", percentDiff); 
             return percentDiff <= margin_of_error;  
         }; 
 
@@ -213,6 +228,7 @@ class Cache_system {
             // printf("Update LLC: End: No Match Found LLC\n"); 
         }; 
         
+
         
         
 
@@ -362,13 +378,13 @@ class Cache_system {
                                 }
 
                                 if (speculate) {
-                                    printf("~~~~~~~~~~~~~~~~~~~~cache_write: MISS SPECUALTED~~~~~~~~~~~~~~~~~\n"); 
+                                    // printf("~~~~~~~~~~~~~~~~~~~~cache_write: MISS SPECUALTED~~~~~~~~~~~~~~~~~\n"); 
                                     stats.speculate_cases += 1; 
                                     if(magic_memory.check_address(addr)) {
-                                        printf("cache_write: other_line coreID: %d, state: %d\n", core_index, other_line->state); 
+                                        // printf("cache_write: other_line coreID: %d, state: %d\n", core_index, other_line->state); 
                                         stats.success_addr_bound += 1; 
                                         other_line->state = VICTIMIZED;
-                                         printf("cache_write: other_line coreID: %d, state: %d\n", core_index, other_line->state); 
+                                        //  printf("cache_write: other_line coreID: %d, state: %d\n", core_index, other_line->state); 
                                     }
                                     else {
                                         stats.failed_addr_bound += 1; 
@@ -478,7 +494,7 @@ class Cache_system {
                                 // if in M or S state
                                 if (other_line->state == MODIFIED || other_line->state == SHARED) {
                                     // printf("OtherLine State: %d, Data: %li\n", other_line->state, other_line->data[block_index]);
-                                    printLine(*other_line); 
+                                    // printLine(*other_line); 
 
                                     // Copy the cache contents over 
                                     if(other_line->state == MODIFIED) {
@@ -492,7 +508,7 @@ class Cache_system {
                         }
                     }
 
-                    printf("valid_data: %li\n", valid_data); 
+                    // printf("valid_data: %li\n", valid_data); 
                     line->state = SHARED;
                     line->data[block_index] = valid_data;
 
@@ -505,6 +521,7 @@ class Cache_system {
                         return result;
                     } 
                     else {
+                        printf("ROLLLBACKKKKK\n\n"); 
                         stats.rollback += 1; 
                         result.speculated = false; 
                         result.valid_data = valid_data; 
