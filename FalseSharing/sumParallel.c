@@ -9,16 +9,16 @@
     Code is taken from POSIX Threads Programming, 
     written by Blaise Barney of LLNL.
 
-	//pthread_mutex_unlock(&mutex);
-	//pthread_mutex_lock(&mutex);
-	//pthread_barrier_wait(&barrier);
+	// pthread_mutex_unlock(&mutex);
+	// pthread_mutex_lock(&mutex);
+	// pthread_barrier_wait(&barrier);
 */
 #include <sys/time.h>
 #include <pthread.h>
 #include <stdio.h>
 
-#define THREAD_COUNT 100
-#define ELEMENT_COUNT 100000
+#define THREAD_COUNT 2
+#define ELEMENT_COUNT 10272
 
 // GLOBALS ACCESSABLE
 
@@ -29,10 +29,10 @@ unsigned long A[ELEMENT_COUNT];
 // int accum;
 
 typedef struct pin_data {
-    // unsigned long addr_sum;
+    unsigned long addr_sum;
     unsigned long addr_psum; 
     unsigned long addr_A; 
-    // int sum_length; 
+    int sum_length; 
     int psum_length; 
     int A_length; 
     int num_cores;  
@@ -41,17 +41,15 @@ typedef struct pin_data {
 
 pin_data_t ret_pin_data() {
     pin_data_t data;
-    // data.addr_sum = (unsigned long) &sum;
+    data.addr_sum = (unsigned long) &sum;
     data.addr_psum = (unsigned long) &psum;
     data.addr_A = (unsigned long) &A;
-    // data.sum_length = 1;
+    data.sum_length = 1;
     data.psum_length = THREAD_COUNT;
     data.A_length = ELEMENT_COUNT;
     data.num_cores = THREAD_COUNT;
     return data;
 }
-
-
 
 // // PTHREAD GLOBALS
 // pthread_mutex_t mutex;
@@ -81,13 +79,20 @@ void *SumParallel(void *threadid)
     //     psum[id] += A[id * (ELEMENT_COUNT/THREAD_COUNT) + i]; 
     // }
 
-    for (i = 0; i < (ELEMENT_COUNT/THREAD_COUNT); i++) {
-        psum[id] += A[id * (ELEMENT_COUNT/THREAD_COUNT) + i]; 
-    }
+    // for (i = 0; i < (ELEMENT_COUNT/THREAD_COUNT); i++) {
+    //     unsigned long temp = psum[id] + A[id * (ELEMENT_COUNT/THREAD_COUNT) + i]; 
+    //     psum[id] = temp; 
+    // }
 
-    // pthread_mutex_lock(&mutex); 
-    // sum = sum + psum[id]; 
-    // pthread_mutex_unlock(&mutex); 
+
+    for (i = 0; i < (ELEMENT_COUNT/THREAD_COUNT); i++) {
+        pthread_mutex_lock(&mutex);
+        unsigned long temp = A[id * (ELEMENT_COUNT/THREAD_COUNT) + i]; 
+        sum += temp; 
+        pthread_mutex_unlock(&mutex); 
+    }
+      
+    
 
     /*int remain = THREAD_COUNT; 
     int half; 
@@ -150,7 +155,7 @@ void *main_func(void *arg) {
     // }
     printf("\n"); 
     for(i = 0; i < THREAD_COUNT; i++) {
-        // printf("i: %d, psum[i]: %li\n", i, psum[i]); 
+        printf("i: %d, psum[i]: %li\n", i, psum[i]); 
         sum += psum[i]; 
     }
     // Print the summation

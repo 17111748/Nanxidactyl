@@ -107,6 +107,27 @@ class Read_tuple {
         }; 
 };
 
+class Instr {
+    public: 
+        bool read; 
+        uint8_t coreID; 
+        uint64_t addr; 
+        uint64_t data; 
+        Instr() {
+            read = true; 
+            coreID = 0; 
+            addr = 0; 
+            data = 0; 
+        };
+        Instr(bool read, uint8_t coreID, uint64_t addr, uint64_t data) {
+            this->read = read; 
+            this->coreID = coreID; 
+            this->addr = addr; 
+            this->data = data; 
+        };
+};
+
+
 // The cache system acts as the controller 
 class Cache_system {
     public: 
@@ -118,6 +139,9 @@ class Cache_system {
         std::map<uint8_t, Cache> caches;
         Cache llc; 
         System_stats stats; 
+
+        uint64_t total_instr; 
+        std::vector<std::vector<Instr> > instruction_map; 
 
         Cache_system(std::vector<uint64_t> addresses, uint8_t num_cores, 
                             double speculation_percent, double margin_of_error) {
@@ -134,22 +158,98 @@ class Cache_system {
 
             this->magic_memory = Magic_memory(addresses); 
             this->stats = System_stats(); 
+
+            this->total_instr = 0; 
+            for(uint8_t i = 0; i < num_cores; i++) {
+                std::vector<Instr> temp_vector; 
+                this->instruction_map.push_back(temp_vector); 
+            }
+            print_parallel_stats(); 
         };
         
-        void print_system_stats() {
-            printf("~~~~~~~~~~~~~~~Printing System Stats~~~~~~~~~~~~~~~~~~~~~\n"); 
-            printf("Rollback: %li\n", stats.rollback); 
-            printf("Success: %li\n", stats.success); 
-            printf("Success Address Bound: %li\n", stats.success_addr_bound); 
-            printf("Failed Address Bound: %li\n", stats.failed_addr_bound); 
-            printf("Speculated Cases: %li\n", stats.speculate_cases); 
-            printf("Total Cases: %li\n", stats.total_cases);
-            printf("Bus Transactions: %li\n", stats.bus_transactions);  
-            printf("~~~~~~~~~~~~~~~~~~~~~End Print~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+        void fake_read(unsigned long temp_coreID, uint64_t addr, FILE * trace = NULL) {
+            Instr instr = Instr(true, temp_coreID, addr, 0); 
+            instruction_map[temp_coreID].push_back(instr); 
+            total_instr += 1; 
+            fprintf(trace, "total_instr: %li\n", total_instr); 
+            if(total_instr == 123482) {
+                print_parallel_stats(trace); 
+            }
+        }
+
+        void fake_write(unsigned long temp_coreID, uint64_t addr, uint64_t data, FILE *trace = NULL) {
+            Instr instr = Instr(false, temp_coreID, addr, data); 
+            instruction_map[temp_coreID].push_back(instr); 
+            total_instr += 1; 
+            fprintf(trace, "total_instr: %li\n", total_instr); 
+            if(total_instr == 123482) {
+                print_parallel_stats(trace); 
+            }
+        }
+
+        void print_parallel_stats(FILE *trace = NULL) {
+            // printf("Total Instr: %li\n", total_instr); 
+            uint64_t finished_instr = total_instr; 
+            uint64_t counter = 0; 
+            std::vector<uint64_t> indexes; 
+            for(unsigned long i = 0; i < num_cores; i++) {
+                indexes.push_back(0); 
+            }
+
+            while(finished_instr > (uint64_t)0) {
+                int core_index = counter % (uint64_t) num_cores; 
+
+                if(instruction_map[core_index].size() <= indexes[core_index]) {
+                    counter += 1; 
+                }
+                else {
+                    uint64_t index = indexes[core_index]; 
+                    Instr instr = instruction_map[core_index][index]; 
+
+                    if(instr.read) {
+                        cache_read(core_index, instr.addr); 
+                    }
+                    else {
+                        cache_write(core_index, instr.addr, instr.data); 
+                    }
+
+                    indexes[core_index] += 1; 
+                    finished_instr -= 1; 
+                    counter += 1; 
+                }
+                
+            }
+            // printf("End\n"); 
+            print_system_stats(trace); 
+        }
+
+        void print_system_stats(FILE * trace = NULL) {
+            if(trace == NULL) {
+                printf("~~~~~~~~~~~~~~~Printing System Stats~~~~~~~~~~~~~~~~~~~~~\n"); 
+                printf("Rollback: %li\n", stats.rollback); 
+                printf("Success: %li\n", stats.success); 
+                printf("Success Address Bound: %li\n", stats.success_addr_bound); 
+                printf("Failed Address Bound: %li\n", stats.failed_addr_bound); 
+                printf("Speculated Cases: %li\n", stats.speculate_cases); 
+                printf("Total Cases: %li\n", stats.total_cases);
+                printf("Bus Transactions: %li\n", stats.bus_transactions);  
+                printf("~~~~~~~~~~~~~~~~~~~~~End Print~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+            }
+            else {
+                fprintf(trace, "~~~~~~~~~~~~~~~Printing System Stats~~~~~~~~~~~~~~~~~~~~~\n"); 
+                fprintf(trace, "Rollback: %li\n", stats.rollback); 
+                fprintf(trace, "Success: %li\n", stats.success); 
+                fprintf(trace, "Success Address Bound: %li\n", stats.success_addr_bound); 
+                // fprintf(trace, "Failed Address Bound: %li\n", stats.failed_addr_bound); 
+                fprintf(trace, "Speculated Cases: %li\n", stats.speculate_cases); 
+                // fprintf(trace, "Total Cases: %li\n", stats.total_cases);
+                fprintf(trace, "Bus Transactions: %li\n", stats.bus_transactions);  
+                fprintf(trace, "~~~~~~~~~~~~~~~~~~~~~End Print~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+            }
         }
 
         bool within_threshold(uint64_t valid, uint64_t invalid) {
-            printf("Valid Data: %li, invalid data: %li\n", valid, invalid); 
+            // printf("Valid Data: %li, invalid data: %li\n", valid, invalid); 
 
 
             if(valid == 0 && invalid == 0) {
@@ -157,7 +257,7 @@ class Cache_system {
             }
 
             double percentDiff = ((  abs((double)invalid - (double)valid) / (double)valid) * 100); 
-            printf("percent Diff %f\n", percentDiff); 
+            // printf("percent Diff %f\n", percentDiff); 
             return percentDiff <= margin_of_error;  
         }; 
 
@@ -233,6 +333,7 @@ class Cache_system {
         
 
         void cache_write(uint8_t coreID, uint64_t addr, uint64_t data) {
+            total_instr += 1; 
             global_time += 1; 
             // printf("\nIn cache_system.h: In Cache Write Function \n"); 
             // printf("Cache Write: CoreID: %i, Address: %li, Data: %li\n", coreID, addr, data);
@@ -427,6 +528,7 @@ class Cache_system {
         // Returns < Whether it is speculated, valid data, invalid/speculative data > 
         // std::tuple<bool, uint32_t, uint32_t> cache_read(uint8_t coreID, uint64_t addr);
         Read_tuple cache_read(uint8_t coreID, uint64_t addr) {
+            total_instr +=1; 
             // printf("Cache Read: Start Cache Read \n"); 
             global_time += 1; 
             caches[coreID].cache_stats.num_access += 1; 

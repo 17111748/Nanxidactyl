@@ -35,10 +35,10 @@ PIN_LOCK pinLock;
 
 // TOCHANGE: Copy from declaration in executable code
 typedef struct pin_data {
-    // unsigned long addr_sum;
+    unsigned long addr_sum;
     unsigned long addr_psum; 
     unsigned long addr_A; 
-    // int sum_length; 
+    int sum_length; 
     int psum_length; 
     int A_length; 
     int num_cores;  
@@ -59,6 +59,9 @@ std::vector<std::pair<unsigned long, uint64_t> > revert_vector;
 // bool speculated[100] = {false}; 
 std::vector<bool> speculated; 
 
+unsigned long read_count = 0; 
+unsigned long write_count = 0; 
+
 // The running count of instructions is kept here
 // make it static to help the compiler optimize docount
 static UINT64 icount = 0;
@@ -68,10 +71,11 @@ FILE * trace;
 
 
 bool memory_bound(uint64_t address) {
-    bool A_true = (pin_data.addr_A <= address && address < (pin_data.addr_A + pin_data.A_length*sizeof(unsigned long))); 
+    // bool A_true = (pin_data.addr_A <= address && address < (pin_data.addr_A + pin_data.A_length*sizeof(unsigned long))); 
     bool psum_true = (pin_data.addr_psum <= address && address < (pin_data.addr_psum + pin_data.psum_length*sizeof(unsigned long))); 
+    // bool sum_true = (pin_data.addr_sum <= address && address < (pin_data.addr_sum + 1*sizeof(unsigned long))); 
     
-    if(psum_true || A_true) {
+    if(psum_true) {
         return true; 
     }
     else {
@@ -111,54 +115,53 @@ VOID RecordMemRead(VOID * ip, VOID * addr, VOID *threadId)
     uint64_t coreID = ((uint64_t) threadId) - 2;
 
     if (tid >= 2) {
-        fprintf(trace,"%p: R %p id %p\n", ip, addr, threadId);
+        // fprintf(trace,"%p: R %p id %p\n", ip, addr, threadId);
         unsigned long addr_converted = (unsigned long)addr; 
-         
-        // printf("Addr_A: %lx, A_length %d, Addr_B: %lx, B_length: %d\n\n", pin_data.addr_A, pin_data.A_length, pin_data.addr_B, pin_data.B_length); 
-        // printf("Address: %li\n", (uint64_t) addr); 
+
+        cache->fake_read(coreID, (uint64_t)addr_converted, trace); 
+        
+        // Read_tuple result = cache->cache_read(coreID, (uint64_t)addr); 
+
         // if(memory_bound(addr_converted)) {
-        //     printf("Address Converted: %lx\n", addr_converted); 
-        //     ((float *) (addr))[0] = 2; 
-        //     printf("Editted 2 ... tid: %li\n", tid); 
-        //     speculated = true; 
-        // }
-        Read_tuple result = cache->cache_read(coreID, (uint64_t)addr); 
-
-        if(memory_bound_psum(addr_converted)) {
-
-            // printf("Read Before: going into call\n"); 
-            // Read_tuple result = cache->cache_read(coreID, (uint64_t)addr); 
-           
-            // printf("Read %li: Address: %lx\n", coreID, addr_converted);
-            // printf("Specualted: %d, Valid_data: %li\n\n", (result.speculated) ? 1:0, (unsigned long)result.valid_data);
-
-            if(result.speculated && !result.not_in_system) {
-                uint64_t valid_data = result.valid_data; 
-                uint64_t invalid_data = result.invalid_data; 
-                
-                if(valid_data != invalid_data) {
-
-                    
-                    printf("PIN: valid_data: %li, invalid_data %li\n", valid_data, invalid_data);
-                    printf("PIN: valid_data: %li, invalid_data %li\n", (unsigned long)valid_data, (unsigned long)invalid_data);
-
-                    
-                    
-                    ((uint64_t *) (addr_converted))[0] = invalid_data; 
-                    printf("Read Before: %li addr_converted: %lx, invalid_data %li\n", coreID, addr_converted, invalid_data);
-
-                    // Store it in the global Revert Map
-                    // printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~SPECULATED~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
-                    std::pair<unsigned long, uint64_t> revert_pair = std::make_pair(addr_converted, valid_data); 
-                    revert_coreID.push_back(coreID); 
-                    revert_vector.push_back(revert_pair); 
-                    speculated[coreID] = true; 
-                    // printf("Read Before: coreID: %li, vector size: %li\n", coreID, revert_vector.size()); 
-                }
-                
-            }
             
-        }
+        //     // printf("Read Before: going into call\n"); 
+        //     // Read_tuple result = cache->cache_read(coreID, (uint64_t)addr); 
+           
+        //     // printf("Read %li: Address: %lx\n", coreID, addr_converted);
+        //     // printf("Specualted: %d, Valid_data: %li\n\n", (result.speculated) ? 1:0, (unsigned long)result.valid_data);
+
+        //     if(result.speculated && !result.not_in_system) {
+        //         uint64_t valid_data = result.valid_data; 
+        //         uint64_t invalid_data = result.invalid_data; 
+                
+        //         if(valid_data != invalid_data) {
+
+                    
+        //             // printf("PIN: valid_data: %li, invalid_data %li\n", valid_data, invalid_data);
+        //             // printf("PIN: valid_data: %li, invalid_data %li\n", (unsigned long)valid_data, (unsigned long)invalid_data);
+
+                    
+                    
+        //             ((uint64_t *) (addr_converted))[0] = invalid_data; 
+        //             // printf("Read Before: %li addr_converted: %lx, invalid_data %li\n", coreID, addr_converted, invalid_data);
+
+        //             // Store it in the global Revert Map
+        //             // printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~SPECULATED~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+        //             std::pair<unsigned long, uint64_t> revert_pair = std::make_pair(addr_converted, valid_data); 
+        //             revert_coreID.push_back(coreID); 
+        //             revert_vector.push_back(revert_pair); 
+        //             speculated[coreID] = true; 
+        //             // printf("Read Before: coreID: %li, vector size: %li\n", coreID, revert_vector.size()); 
+        //         }
+                
+        //     }
+            
+        // }
+
+        // fprintf(trace, "total_instr: %li\n", cache->total_instr); 
+        // if(cache->total_instr == 123482) {
+        //     cache->print_parallel_stats(trace); 
+        // }
 
     }
     
@@ -183,40 +186,37 @@ VOID RecordMemReadAfter(VOID * ip, VOID * addr, VOID *threadId)
     // printf("Read: Start Before Lock\n"); 
     unsigned long tid = (unsigned long) threadId;
     PIN_GetLock(&pinLock, tid);
-    // if(tid >= 2) {
-    //     printf("ReadAfter: End Before Lock\n"); 
-    // }
 
     uint64_t coreID = ((uint64_t) threadId) - 2;
     
     // Only threadIds greater than 2 represent the execution we care about
-    if (tid >= 2) {
-        fprintf(trace,"%p: R %p id %p\n", ip, addr, threadId);
-
-        unsigned long addr_converted = (unsigned long)addr; 
+    if (coreID >= 0) {
+        // fprintf(trace,"%p: R %p id %p\n", ip, addr, threadId);
         
-        if(speculated[coreID] && memory_bound_psum(addr_converted) && revert_coreID.size() > 0) {
-            // printf("Read After: coreid: %li, revert_coreID size: %li, vector_size: %li\n", coreID, revert_coreID.size(), revert_vector.size()); 
-            int count = 0; 
-            for(int i = revert_coreID.size() - 1; i >= 0; i--) {
-                if(revert_coreID[i] == coreID && revert_vector[i].first == addr_converted) {
-                    // printf("Once\n"); 
-                    count += 1; 
-                    std::pair<unsigned long, uint64_t> pair = revert_vector[i]; 
-                    unsigned long valid_address_revert = pair.first; 
-                    uint64_t valid_data_revert = pair.second; 
-                    ((uint64_t *) (valid_address_revert))[0] = valid_data_revert; 
-                    revert_coreID.erase(revert_coreID.begin() + i); 
-                    revert_vector.erase(revert_vector.begin() + i); 
-                    speculated[coreID] = false; 
-                    // printf("Read After: coreID: %li\n", coreID);
-                    printf("Read After: %li Address Converted: %lx, Data: %li\n", coreID, valid_address_revert, (unsigned long)valid_data_revert);
-                }
-            }
-            // printf("Read After: coreid: %li, revert_coreID size: %li, count: %d, vector size: %li\n", coreID, revert_coreID.size(), count, revert_vector.size()); 
+        // unsigned long addr_converted = (unsigned long)addr; 
+
+        // if(speculated[coreID] && memory_bound(addr_converted) && revert_coreID.size() > 0) {
+        //     // printf("Read After: coreid: %li, revert_coreID size: %li, vector_size: %li\n", coreID, revert_coreID.size(), revert_vector.size()); 
+        //     int count = 0; 
+        //     for(int i = revert_coreID.size() - 1; i >= 0; i--) {
+        //         if(revert_coreID[i] == coreID && revert_vector[i].first == addr_converted) {
+        //             // printf("Once\n"); 
+        //             count += 1; 
+        //             std::pair<unsigned long, uint64_t> pair = revert_vector[i]; 
+        //             unsigned long valid_address_revert = pair.first; 
+        //             uint64_t valid_data_revert = pair.second; 
+        //             ((uint64_t *) (valid_address_revert))[0] = valid_data_revert; 
+        //             revert_coreID.erase(revert_coreID.begin() + i); 
+        //             revert_vector.erase(revert_vector.begin() + i); 
+        //             speculated[coreID] = false; 
+        //             // printf("Read After: coreID: %li\n", coreID);
+        //             // printf("Read After: %li Address Converted: %lx, Data: %li\n", coreID, valid_address_revert, (unsigned long)valid_data_revert);
+        //         }
+        //     }
+        //     // printf("Read After: coreid: %li, revert_coreID size: %li, count: %d, vector size: %li\n", coreID, revert_coreID.size(), count, revert_vector.size()); 
             
 
-        }
+        // }
     }
 
     // if(tid >= 2) {
@@ -244,15 +244,21 @@ VOID RecordMemWrite(VOID * ip, VOID * addr, VOID *data_size, VOID *threadId)
         if (cache == NULL) {
             printf("CACHE WAS NULL");
         } else {
-            // printf("WRITE %p\n", addr);
-            fprintf(trace,"%p: W %p\n", ip, addr); // , threadId);
+            
+            // fprintf(trace,"%p: W %p\n", ip, addr); // , threadId);
             // printf("Spec percent: %f", cache->speculation_percent);
-            if(memory_bound_psum((unsigned long)addr)) {
-                // printf("Cache Write:\n"); 
-                // printf("Write %li: Address: %lx, Data: %li\n", coreID, (unsigned long)addr, (unsigned long)data); 
-                // cache->cache_write(coreID, (uint64_t) addr, data);
-            }
-            cache->cache_write(coreID, (uint64_t) addr, data);
+            // if(memory_bound((unsigned long)addr)) {
+            //     // printf("Cache Write:\n"); 
+            //     // printf("Write %li: Address: %lx, Data: %li\n", coreID, (unsigned long)addr, (unsigned long)data); 
+            //     // cache->cache_write(coreID, (uint64_t) addr, data);
+            // }
+
+            // cache->cache_write(coreID, (uint64_t) addr, data);
+            // fprintf(trace, "total_instr: %li\n", cache->total_instr); 
+            // if(cache->total_instr == 123482) {
+            //     cache->print_parallel_stats(trace); 
+            // }
+            cache->fake_write(coreID, (uint64_t) addr, data, trace);
         }
     }
 
@@ -314,16 +320,6 @@ VOID Instruction(INS ins, VOID *v) // Instrumentation
 
                     IARG_THREAD_ID, 
                     IARG_END);
-                // INS_InsertPredicatedCall(
-                //     ins, IPOINT_AFTER, (AFUNPTR)RecordMemWriteAfter,
-                //     IARG_INST_PTR,
-
-                //     IARG_MEMORYOP_EA, 
-                //     memOp,
-                //     IARG_MEMORYWRITE_SIZE,
-
-                //     IARG_THREAD_ID, 
-                //     IARG_END);
             }
         }
     }
@@ -392,9 +388,11 @@ void ThreadStart(THREADID threadId, CONTEXT *ctxt, INT32 flags, VOID *v)
         // Initialize cache
         std::vector<uint64_t>  addresses;
         addresses.push_back((uint64_t) pin_data.addr_psum);
+        addresses.push_back((uint64_t) pin_data.addr_psum + 1 * sizeof(unsigned long));
+        addresses.push_back((uint64_t) pin_data.addr_psum);
         addresses.push_back((uint64_t) pin_data.addr_psum + pin_data.psum_length * sizeof(unsigned long));
-        addresses.push_back((uint64_t) pin_data.addr_A);
-        addresses.push_back((uint64_t) pin_data.addr_A + pin_data.A_length * sizeof(unsigned long));
+        // addresses.push_back((uint64_t) pin_data.addr_A);
+        // addresses.push_back((uint64_t) pin_data.addr_A + pin_data.A_length * sizeof(unsigned long));
 
         int num_threads = pin_data.num_cores; 
         for(int i = 0; i < num_threads; i++) {
@@ -404,13 +402,15 @@ void ThreadStart(THREADID threadId, CONTEXT *ctxt, INT32 flags, VOID *v)
         cache = new Cache_system(addresses, pin_data.num_cores, 1, 0);        
 
     }
+
     PIN_ReleaseLock(&pinLock);
 
     printf("Thread End %i\n", threadId);
 
-    if(threadId == (pin_data.num_cores + (unsigned long)1)) {
-        cache->print_system_stats(); 
-    }
+    // if(threadId == (pin_data.num_cores + (unsigned long)1)) {
+    //     printf("Read Count: %li, Write Count: %li, Sum: %li\n", read_count, write_count, read_count + write_count); 
+    //     cache->print_parallel_stats(); 
+    // }
 
     printf("~~~~~~~~~~~~~~~~~~~~~~\n"); 
 

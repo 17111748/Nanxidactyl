@@ -13,8 +13,8 @@
 #define WRITE_TO_MEMORY_CYCLES 100
 
 // // Buffer Sizes 
-#define NUM_BLOCKS 64
-#define BLOCK_SIZE 6
+#define NUM_BLOCKS 32
+#define BLOCK_SIZE 5
 #define ADDR_SIZE 64
 
 // // L1 Cache parameters 
@@ -28,9 +28,9 @@
 // #define BLOCK_SIZE 5
 // #define ADDR_SIZE 64
 
-#define L1_SET_ASSOCIATIVITY 2
+#define L1_SET_ASSOCIATIVITY 8
 #define L1_NUM_SETS 64
-#define LLC_SET_ASSOCIATIVITY 2
+#define LLC_SET_ASSOCIATIVITY 8
 #define LLC_NUM_SETS 256
 
 // Different Cache States for the cache coherence protocol 
