@@ -17,8 +17,8 @@
 #include <pthread.h>
 #include <stdio.h>
 
-#define THREAD_COUNT 2
-#define ELEMENT_COUNT 10272
+#define THREAD_COUNT 8
+#define ELEMENT_COUNT 102720
 
 // GLOBALS ACCESSABLE
 
@@ -52,8 +52,8 @@ pin_data_t ret_pin_data() {
 }
 
 // // PTHREAD GLOBALS
-// pthread_mutex_t mutex;
-// pthread_barrier_t barrier;
+pthread_mutex_t mutex;
+pthread_barrier_t barrier;
 
 // void *Bash(void *threadid)
 // {
@@ -87,8 +87,7 @@ void *SumParallel(void *threadid)
 
     for (i = 0; i < (ELEMENT_COUNT/THREAD_COUNT); i++) {
         pthread_mutex_lock(&mutex);
-        unsigned long temp = A[id * (ELEMENT_COUNT/THREAD_COUNT) + i]; 
-        sum += temp; 
+        sum += A[id * (ELEMENT_COUNT/THREAD_COUNT) + i]; 
         pthread_mutex_unlock(&mutex); 
     }
       
@@ -122,7 +121,7 @@ void *main_func(void *arg) {
     pthread_t threads[THREAD_COUNT];
 	long thread;
 
-    int i; 
+    // int i; 
     // for(i = 0; i < ELEMENT_COUNT; i++) {
     //     printf("i: %d, A[i]: %li\n", i, A[i]); 
     // }
@@ -153,11 +152,11 @@ void *main_func(void *arg) {
     // for(i = 0; i < ELEMENT_COUNT; i++) {
     //     printf("i: %d, A[i]: %li\n", i, A[i]); 
     // }
-    printf("\n"); 
-    for(i = 0; i < THREAD_COUNT; i++) {
-        printf("i: %d, psum[i]: %li\n", i, psum[i]); 
-        sum += psum[i]; 
-    }
+    // printf("\n"); 
+    // for(i = 0; i < THREAD_COUNT; i++) {
+    //     printf("i: %d, psum[i]: %li\n", i, psum[i]); 
+    //     sum += psum[i]; 
+    // }
     // Print the summation
     // printf("accum      = %d\n", accum);
     printf("sum        = %li\n", sum); 
@@ -175,10 +174,12 @@ int main()
 	// pthread_barrier_init(&barrier, NULL, THREAD_COUNT);
 
     // Initialize matrix A 
-    unsigned long temp = 0; 
+
+    sum = ELEMENT_COUNT; 
+    unsigned long temp = 0;
     int i;
     for (i=0; i<ELEMENT_COUNT; i=i+1) {
-        A[i] = (i+1);
+        A[i] = i;
         temp += 1; 
     }	
     printf("\ncorrect sum: %li\n", temp); 

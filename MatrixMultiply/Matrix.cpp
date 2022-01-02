@@ -12,7 +12,7 @@ using namespace Matrix;
 // => numberOfColumns * currentRow + currentColumn
 
 void matrix::createRandomMatrix() {
-	matrix = new float[m*n];
+	matrix = new int[m*n];
 	for (int r = 0; r < m; r++) {
 		for (int c = 0; c < n; c++) {
 			matrix[n*r+c] = rand() % 10;
@@ -21,7 +21,7 @@ void matrix::createRandomMatrix() {
 }
 
 void matrix::createEmptyMatrix() {
-	matrix = new float[m*n];
+	matrix = new int[m*n];
 	for (int r = 0; r < m; r++) {
 		for (int c = 0; c < n; c++) {
 			matrix[n * r + c] = 0;
@@ -30,7 +30,7 @@ void matrix::createEmptyMatrix() {
 }
 
 void matrix::createAllOnes() {
-	matrix = new float[m*n];
+	matrix = new int[m*n];
 	for (int r = 0; r < m; r++) {
 		for (int c = 0; c < n; c++) {
 			matrix[n * r + c] = 1;

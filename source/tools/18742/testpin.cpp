@@ -55,7 +55,14 @@ Cache_system* cache = NULL;
 
 // Speculated to revert back to original 
 bool speculated_revert = false;
-std::map<unsigned long, uint64_t> revert_map; // Stores Address and Data 
+std::vector<unsigned long> revert_coreID; 
+std::vector<std::pair<unsigned long, uint64_t> > revert_vector; 
+
+// bool speculated[100] = {false}; 
+std::vector<bool> speculated; 
+
+unsigned long read_count = 0; 
+unsigned long write_count = 0; 
 
 // The running count of instructions is kept here
 // make it static to help the compiler optimize docount
@@ -66,10 +73,10 @@ FILE * trace;
 
 
 bool memory_bound(uint64_t address) {
-    bool A_true = (pin_data.addr_A <= address && address < (pin_data.addr_A + pin_data.A_length*sizeof(float))); 
-    bool B_true = (pin_data.addr_B <= address && address < (pin_data.addr_B + pin_data.B_length*sizeof(float))); 
-    
-    if(A_true || B_true) {
+    bool A_true = (pin_data.addr_A <= address && address < (pin_data.addr_A + pin_data.A_length*sizeof(int))); 
+    bool B_true = (pin_data.addr_B <= address && address < (pin_data.addr_B + pin_data.B_length*sizeof(int))); 
+    bool C_true = (pin_data.addr_CWT <= address && address < (pin_data.addr_CWT + pin_data.CWT_length*sizeof(int))); 
+    if(A_true || B_true || C_true) {
         return true; 
     }
     else {
@@ -84,52 +91,55 @@ VOID RecordMemRead(VOID * ip, VOID * addr, VOID *threadId)
     unsigned long tid = (unsigned long) threadId;
     PIN_GetLock(&pinLock, tid);
     // Only threadIds greater than 2 represent the execution we care about
-    uint64_t coreId = ((uint64_t) threadId) - 2;
-
+    
+    // printf("READ\n"); 
     if (tid >= 2) {
-        fprintf(trace,"%p: R %p id %p\n", ip, addr, threadId);
+
+        uint64_t coreID = ((uint64_t) threadId) - 2;
         unsigned long addr_converted = (unsigned long)addr; 
-        // printf("Address Converted: %lx\n", addr_converted); 
-        // printf("Addr_A: %lx, A_length %d, Addr_B: %lx, B_length: %d\n\n", pin_data.addr_A, pin_data.A_length, pin_data.addr_B, pin_data.B_length); 
-        // printf("Address: %li\n", (uint64_t) addr); 
-        // if(memory_bound(addr_converted)) {
-        //     printf("Address Converted: %lx\n", addr_converted); 
-        //     ((float *) (addr))[0] = 2; 
-        //     printf("Editted 2 ... tid: %li\n", tid); 
-        //     speculated = true; 
-        // }
 
-        if(memory_bound(addr_converted)) {
-            // uint64_t valid_data = 1; 
-            // uint64_t invalid_data = 2; 
-            // ((float *) (addr))[0] = invalid_data; 
-            // revert_map.insert(std::pair<unsigned long, uint64_t>(addr_converted, valid_data)); 
-            // speculated_revert = true; 
+        Read_tuple result = cache->cache_read(coreID, (uint64_t)addr); 
+        uint64_t zero = (uint64_t)0;
+        fprintf(trace,"%d %li %li %li %d %li %li %li %li %li %li\n", 1, coreID, (uint64_t)addr_converted, zero, 0, zero, zero, zero, zero, zero, zero);
 
-            Read_tuple result = cache->cache_read(coreId, (uint64_t)addr); 
+        
+        if(memory_bound(addr_converted)) {            
+            // printf("Read Before: going into call\n"); 
+            // Read_tuple result = cache->cache_read(coreID, (uint64_t)addr); 
+           
+            // printf("Read %li: Address: %lx\n", coreID, addr_converted);
+            // printf("Specualted: %d, Valid_data: %li\n\n", (result.speculated) ? 1:0, (unsigned long)result.valid_data);
 
-            uint64_t valid_data = result.valid_data; 
-            uint64_t invalid_data = result.invalid_data; 
-            if(result.speculated && !result.not_in_system) {
-                ((float *) (addr))[0] = invalid_data; 
-                // Store it in the global Revert Map
-                printf("SPECULATED\n"); 
-                revert_map.insert(std::pair<unsigned long, uint64_t>(addr_converted, valid_data)); 
-                speculated_revert = true; 
+            if(result.speculated) {
+                uint64_t valid_data = result.valid_data; 
+                uint64_t invalid_data = result.invalid_data; 
+                // printf("VALID DATA: %li, INVALID DATA: %li\n", valid_data, invalid_data); 
+                // fprintf(output, "VALID DATA: %li, INVALID DATA: %li\n", valid_data, invalid_data); 
+                if(valid_data != invalid_data) {
+
+                    
+                    // printf("PIN: valid_data: %li, invalid_data %li Addr: %lx\n", valid_data, invalid_data, addr_converted);
+                    // printf("PIN: valid_data: %li, invalid_data %li\n", (unsigned long)valid_data, (unsigned long)invalid_data);
+
+                    ((int *) (addr_converted))[0] = invalid_data; 
+                    // printf("Read Before: %li addr_converted: %lx, invalid_data %li\n", coreID, addr_converted, invalid_data);
+
+                    // Store it in the global Revert Map
+                    // printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~SPECULATED~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
+                    std::pair<unsigned long, uint64_t> revert_pair = std::make_pair(addr_converted, valid_data); 
+                    revert_coreID.push_back(coreID); 
+                    revert_vector.push_back(revert_pair); 
+                    speculated[coreID] = true; 
+                    // printf("Read Before: coreID: %li, vector size: %li\n", coreID, revert_vector.size()); 
+                }
+                
             }
+            
         }
+
 
     }
     
-    // TODO: Do speculative memory modification, if necessary
-    // Read_tuple cache_read();
-    // data a, data b;
-    // Write into memory @addr, data a
-    // PIN runs in Pin mem, Code runs in exec mem
-    // addr pointer: points to exec mem
-    // Cache simulates execution memory
-    // Read from Cache. If speculative, *addr = spec value. Exec mem read, reads the spec value
-    // [1, 2, 3] => [2, 2, 3]
 
     PIN_ReleaseLock(&pinLock);
 }
@@ -146,40 +156,36 @@ VOID RecordMemReadAfter(VOID * ip, VOID * addr, VOID *threadId)
     //     printf("ReadAfter: End Before Lock\n"); 
     // }
 
-    // uint64_t coreId = ((uint64_t) threadId) - 2;
     
     // Only threadIds greater than 2 represent the execution we care about
     if (tid >= 2) {
-        fprintf(trace,"%p: R %p id %p\n", ip, addr, threadId);
+        // fprintf(trace,"%p: R %p id %p\n", ip, addr, threadId);
+        uint64_t coreID = ((uint64_t) threadId) - 2;
 
         unsigned long addr_converted = (unsigned long)addr; 
-        // printf("Address Converted: %lx\n", addr_converted); 
-        // printf("Addr_A: %lx, A_length %d, Addr_B: %lx, B_length: %d\n\n", pin_data.addr_A, pin_data.A_length, pin_data.addr_B, pin_data.B_length); 
-        // printf("Address: %li\n", (uint64_t) addr); 
-        // if(speculated && memory_bound(addr_converted)) {
-        //     printf("Address Converted: %lx\n", addr_converted); 
-        //     ((float *) (addr))[0] = 1; 
-        //     printf("Editted 1 ... tid: %li\n", tid); 
-        //     speculated = false; 
-        // }
 
-        if(speculated_revert && memory_bound(addr_converted)) {
-            std::map<unsigned long, uint64_t>::iterator entry; 
+        if(speculated[coreID] && memory_bound(addr_converted) && revert_coreID.size() > 0) {
+            // printf("Read After: coreid: %li, revert_coreID size: %li, vector_size: %li\n", coreID, revert_coreID.size(), revert_vector.size()); 
             int count = 0; 
-            for(entry = revert_map.begin(); entry != revert_map.end(); ++entry) {
-                count += 1; 
-                unsigned long valid_address_revert = entry->first; 
-                uint64_t valid_data_revert = entry->second; 
-                ((float *) (valid_address_revert))[0] = valid_data_revert;  
+            for(int i = revert_coreID.size() - 1; i >= 0; i--) {
+                if(revert_coreID[i] == coreID && revert_vector[i].first == addr_converted) {
+                    // printf("Once\n"); 
+                    count += 1; 
+                    std::pair<unsigned long, uint64_t> pair = revert_vector[i]; 
+                    unsigned long valid_address_revert = pair.first; 
+                    uint64_t valid_data_revert = pair.second; 
+                    ((int *) (valid_address_revert))[0] = valid_data_revert; 
+                    revert_coreID.erase(revert_coreID.begin() + i); 
+                    revert_vector.erase(revert_vector.begin() + i); 
+                    speculated[coreID] = false; 
+                    // printf("Read After: coreID: %li\n", coreID);
+                    // printf("Read After: %li Address Converted: %lx, Data: %li\n", coreID, valid_address_revert, (unsigned long)valid_data_revert);
+                }
             }
-            if(count > 1) {
-                printf("Mem Read After: More than one revert\n"); 
-            }
-            revert_map.clear(); 
-            speculated_revert = false; 
+            // printf("Read After: coreid: %li, revert_coreID size: %li, count: %d, vector size: %li\n", coreID, revert_coreID.size(), count, revert_vector.size()); 
+            
+
         }
-        
-        // printf("Read After: End\n");
     }
 
     // if(tid >= 2) {
@@ -194,23 +200,29 @@ VOID RecordMemWrite(VOID * ip, VOID * addr, VOID *data_size, VOID *threadId)
 {    
     uint64_t tid = (uint64_t) threadId;
     PIN_GetLock(&pinLock, tid);
-
-    uint64_t coreId = ((uint64_t) threadId) - 2;
+    
     ADDRINT *addr_ptr = (ADDRINT *)addr;
     ADDRINT value;
     PIN_SafeCopy(&value, addr_ptr, sizeof(ADDRINT));
-    uint64_t data = (uint64_t)value;
+    
 
-    // printf("Record write %p %li %li\n", addr, data, coreId);
+    // printf("Record write %p %li %li\n", addr, data, coreID);
 
     if (tid >= 2) {
+        
+
         if (cache == NULL) {
             // printf("CACHE WAS NULL");
         } else {
             // printf("WRITE %p\n", addr);
-            fprintf(trace,"%p: W %p\n", ip, addr); // , threadId);
+            // fprintf(trace,"%p: W %p\n", ip, addr); // , threadId);
             // printf("Spec percent: %f", cache->speculation_percent);
-            cache->cache_write(coreId, (uint64_t) addr, data);
+
+            uint64_t coreID = ((uint64_t) threadId) - 2;
+            uint64_t data = (uint64_t)value;        
+            cache->cache_write(coreID, (uint64_t) addr, data);
+            uint64_t zero = (uint64_t)0; 
+            fprintf(trace,"%d %li %li %li %d %li %li %li %li %li %li\n", 0, coreID, (uint64_t)addr, data, 0, zero, zero, zero, zero, zero, zero);
         }
     }
 
@@ -226,7 +238,6 @@ VOID Instruction(INS ins, VOID *v) // Instrumentation
     // On the IA-32 and Intel(R) 64 architectures conditional moves and REP 
     // prefixed instructions appear as predicated instructions in Pin.
     UINT32 memOperands = INS_MemoryOperandCount(ins);
- 
     // Iterate over each memory operand of the instruction.
     for (UINT32 memOp = 0; memOp < memOperands; memOp++)
     {
@@ -317,7 +328,7 @@ void fillFuncMap(IMG img, std::string s) {
             RTN addressRtn = RTN_FindByName(img, SYM_Name(sym).c_str()); // Physically find the Pin routine that corresponds to func
 
             if (addressRtn.is_valid()) {
-                std::cout << "Address RTN found" << std::endl;
+                // std::cout << "Address RTN found" << std::endl;
                 RTN_Open(addressRtn);
                 AFUNPTR app = RTN_Funptr(addressRtn); // function pointer
 
@@ -337,7 +348,7 @@ void Image(IMG img, VOID *v) {
 
 void ThreadStart(THREADID threadId, CONTEXT *ctxt, INT32 flags, VOID *v)
 {
-    printf("Thread Start %i\n", threadId);
+    // printf("Thread Start %i\n", threadId);
     // Thread 0 is the main thread
     PIN_GetLock(&pinLock, threadId);
     
@@ -348,21 +359,44 @@ void ThreadStart(THREADID threadId, CONTEXT *ctxt, INT32 flags, VOID *v)
         // Initialize cache
         std::vector<uint64_t>  addresses;
         addresses.push_back((uint64_t) pin_data.addr_A);
-        addresses.push_back((uint64_t) pin_data.addr_A + pin_data.A_length * sizeof(float));
+        addresses.push_back((uint64_t) pin_data.addr_A + pin_data.A_length * sizeof(int));
         addresses.push_back((uint64_t) pin_data.addr_B);
-        addresses.push_back((uint64_t) pin_data.addr_B + pin_data.B_length * sizeof(float));
+        addresses.push_back((uint64_t) pin_data.addr_B + pin_data.B_length * sizeof(int));
         addresses.push_back((uint64_t) pin_data.addr_CWT);
-        addresses.push_back((uint64_t) pin_data.addr_CWT + pin_data.CWT_length * sizeof(float));
-        addresses.push_back((uint64_t) pin_data.addr_CWOT);
-        addresses.push_back((uint64_t) pin_data.addr_CWOT + pin_data.CWOT_length * sizeof(float));
+        addresses.push_back((uint64_t) pin_data.addr_CWT + pin_data.CWT_length * sizeof(int));
+        // addresses.push_back((uint64_t) pin_data.addr_CWOT);
+        // addresses.push_back((uint64_t) pin_data.addr_CWOT + pin_data.CWOT_length * sizeof(int));
 
-        cache = new Cache_system(addresses, pin_data.num_cores, 0.1, 5);
+        // uint64_t first = (uint64_t) pin_data.addr_sum; 
+        // uint64_t second = (uint64_t) pin_data.addr_sum + 1 * sizeof(unsigned long); 
+        // uint64_t third = (uint64_t) pin_data.addr_psum;  
+        // uint64_t fourth = (uint64_t) pin_data.addr_psum + pin_data.psum_length * sizeof(unsigned long); 
+        
+        uint64_t first = ((uint64_t) pin_data.addr_A);
+        uint64_t second = ((uint64_t) pin_data.addr_A + pin_data.A_length * sizeof(int));
+        uint64_t third = ((uint64_t) pin_data.addr_B);
+        uint64_t fourth = ((uint64_t) pin_data.addr_B + pin_data.B_length * sizeof(int));
+        uint64_t five = ((uint64_t) pin_data.addr_CWT);
+        uint64_t six = ((uint64_t) pin_data.addr_CWT + pin_data.CWT_length * sizeof(int));
+
+    
+        
+        fprintf(trace, "%d %li %li %li %d %li %li %li %li %li %li\n", 0, (uint64_t)0,(uint64_t)0, (uint64_t)0, 1, first, second, third, fourth, five, six);
+
+
+        // printf("Addr A: %lx, B: %lx, C: %lx\n", pin_data.addr_A, pin_data.addr_B, pin_data.addr_CWT); 
+        int num_threads = pin_data.num_cores; 
+        for(int i = 0; i < num_threads; i++) {
+            speculated.push_back(false); 
+        }
+
+        cache = new Cache_system(addresses, pin_data.num_cores, 1, 50);
         
 
     }
     PIN_ReleaseLock(&pinLock);
 
-    printf("Thread End %i\n", threadId);
+    // printf("Thread End %i\n", threadId);
 
 }
 /* ===================================================================== */

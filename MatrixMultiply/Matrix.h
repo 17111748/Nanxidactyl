@@ -6,9 +6,9 @@
 namespace Matrix {
 	class matrix {
 	public:
-		const static int n = 8;
-		const static int m = 8;
-		float *matrix;
+		const static int n = 4;
+		const static int m = 4;
+		int *matrix;
 		void createRandomMatrix();
 		void print();
 		void createEmptyMatrix();

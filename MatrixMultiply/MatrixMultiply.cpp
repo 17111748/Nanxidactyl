@@ -8,7 +8,10 @@
 #include <chrono>
 #include <thread>
 
-#define NUM_CORES 2
+#define NUM_CORES 4
+
+pthread_mutex_t mutex;
+pthread_barrier_t barrier;
 
 typedef struct pin_data {
     unsigned long addr_A;
@@ -44,23 +47,66 @@ pin_data_t ret_pin_data() {
 using namespace std::chrono;
 
 void matrixmult(Matrix::matrix* Cptr, Matrix::matrix* Aptr, Matrix::matrix* Bptr,int upperbound,int lowerbound = 0) {
-
-    for (int i = lowerbound; i < upperbound; i++){
-
-        for (int k = 0; k < Bptr->n; k++){
-
-            for (int j = 0; j < Aptr->n; j++){
-                Cptr->matrix[Bptr->n * i + k] += Aptr->matrix[Aptr->n * i + j] * Bptr->matrix[Bptr->n * j + k];
-                //std::cout << "running..."<<i;
+   
+    for (int count = 0; count < 10; count++) {
+        pthread_barrier_wait(&barrier); 
+        for (int i = lowerbound; i < upperbound; i++){
+            for (int k = 0; k < Bptr->n; k++){
+                for (int j = 0; j < Aptr->n; j++){
+                    Cptr->matrix[Cptr->n * i + k] += Aptr->matrix[Aptr->n * i + j] * Bptr->matrix[Bptr->n * j + k];
+                    //std::cout << "running..."<<i;
+                }
             }
         }
+        // pthread_mutex_lock(&mutex);
+        pthread_barrier_wait(&barrier); 
+        for (int i = lowerbound; i < upperbound; i++) {
+            for (int k = 0; k < Aptr->n; k++) {
+                // float max = (Aptr->matrix[Bptr->n * i + k], Bptr->matrix[Bptr->n * i + k], Cptr->matrix[Bptr->n * i + k]); 
+                
+                Bptr->matrix[Bptr->n * i + k] = Cptr->matrix[Bptr->n * i + k]/13 + Aptr->matrix[Bptr->n * i + k]; 
+                
+                // if(k % 2 == 0) {
+                //     Bptr->matrix[Bptr->n * i + k] += Cptr->matrix[Bptr->n * i + k] + 1; 
+                // }
+                // else {
+                //     Bptr->matrix[Bptr->n * i + k] += Cptr->matrix[Bptr->n * i + k] - 1; 
+                // }
+
+                // if(k % 2 == 0) {
+                //     if (i % 2 == 0) {
+                //         Bptr->matrix[Bptr->n * i + k] += Cptr->matrix[Bptr->n * i + k]/7 + 2;
+                //     }
+                //     else {
+                //         Bptr->matrix[Bptr->n * i + k] += Cptr->matrix[Bptr->n * i + k]/4 + 3;
+                //     }
+                // }
+                // else {
+                //     if (i % 2 == 0) {
+                //         Bptr->matrix[Bptr->n * i + k] += Cptr->matrix[Bptr->n * i + k]/3 - 1;
+                //     }
+                //     else {
+                //         Bptr->matrix[Bptr->n * i + k] += Cptr->matrix[Bptr->n * i + k]/5 - 2;
+                //     }
+                // }
+            }
+        }
+        // pthread_mutex_unlock(&mutex);
+        
     }
+
     return;
 }
 
 void threadedmult(Matrix::matrix* Cptr, Matrix::matrix* Aptr, Matrix::matrix* Bptr) {
     int thread_num = NUM_CORES; 
     std::thread threadarr[thread_num];
+
+    for(int i = 0; i < Aptr->n*Aptr->n; i++) {
+        Aptr->matrix[i] = (i+1); 
+        Bptr->matrix[i] = (i+2); 
+    }
+    // Aptr->matrix[0] = 0; 
     int step = Aptr->m / thread_num;
     int upperbound;
     for (int i = 0; i < thread_num; i++)
@@ -75,12 +121,12 @@ void threadedmult(Matrix::matrix* Cptr, Matrix::matrix* Aptr, Matrix::matrix* Bp
         }
         threadarr[i] = std::thread(matrixmult, Cptr, Aptr, Bptr, upperbound, (i*step));
     }
-    std::cout << "\n[*] Threads running...";
+    // std::cout << "\n[*] Threads running...";
     for (int i = 0; i < thread_num; i++)
     {
         threadarr[i].join();
     }
-    std::cout << "\n[+] Threads completed!";
+    // std::cout << "\n[+] Threads completed!";
 }
 
 
@@ -90,20 +136,20 @@ void *main_func(void *arg) {
     Matrix::matrix *matrixBPtr = &matrixB;
     Matrix::matrix* matrixCWTPtr = &matrixCWT;
 
-    matrixA.print();
-    matrixB.print();
-    matrixCWT.print();
+    // matrixA.print();
+    // matrixB.print();
+    // matrixCWT.print();
     
 
-    std::cout << "\n[+] Multithreaded calculation started. \n[*] Calculating...";
+    // std::cout << "\n[+] Multithreaded calculation started. \n[*] Calculating...";
     auto startWT = high_resolution_clock::now();
     threadedmult(matrixCWTPtr, matrixAPtr, matrixBPtr);
     auto stopWT = high_resolution_clock::now();
-    std::cout << "\n[+] Multithreaded calculation finished \n[+] Duration: " << duration<double>(stopWT - startWT).count() << " seconds";
+    // std::cout << "\n[+] Multithreaded calculation finished \n[+] Duration: " << duration<double>(stopWT - startWT).count() << " seconds";
 
-    std::cout << "\n" << std::endl; 
-    matrixA.print();
-    matrixB.print();
+    // std::cout << "\n" << std::endl; 
+    // matrixA.print();
+    // matrixB.print();
     matrixCWT.print();
 
     matrixA.deleteMatrix();
@@ -115,8 +161,11 @@ void *main_func(void *arg) {
 
 int main()
 {
-    std::cout << "Matrix multiplication\n";
+    // std::cout << "Matrix multiplication\n";
     /*time_t startWOT, stopWOT, startWT, stopWT;*/
+
+    pthread_mutex_init(&mutex, NULL);
+	pthread_barrier_init(&barrier, NULL, NUM_CORES);
 
     // matrixA.createRandomMatrix();
     // matrixB.createRandomMatrix();
@@ -124,6 +173,7 @@ int main()
     matrixB.createAllOnes(); 
     matrixCWT.createEmptyMatrix();
     matrixCWOT.createEmptyMatrix();
+    
 
 
     // Only start pin trace after setting up problem space
@@ -144,6 +194,8 @@ int main()
     pthread_create(&npid1, NULL, main_func, NULL);
     pthread_join(npid1, NULL);
 
+
+    // pthread_exit(NULL); 
     // Compile this with: 
     // g++ -std=c++11 -pthread Matrix.h Matrix.cpp MatrixMultiply.cpp 
 

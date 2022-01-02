@@ -20,6 +20,12 @@ void printLine(Line l) {
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"); 
 }
 
+
+FILE *output = fopen("output.txt", "w"); 
+FILE *bus = fopen("bus.txt", "w"); 
+int success_count = 0; 
+int rollback_count = 0; 
+
 // Magic Memory Address Range index by 2
 // Allowed Addresses to perform Victimized Protocol
 // Address booking: keeps track of the address ranges that can tolerate approximation
@@ -67,6 +73,7 @@ class System_stats {
 
         uint64_t speculate_cases; // speculate_case = success_addr_bound + fail_address_bound
         uint64_t total_cases; 
+        uint64_t same_line; 
 
         uint64_t bus_transactions; 
         System_stats() {
@@ -77,6 +84,7 @@ class System_stats {
             this->speculate_cases = 0; 
             this->total_cases = 0; 
             this->bus_transactions = 0; 
+            this->same_line = 0; 
         };
 };
 
@@ -139,6 +147,9 @@ class Cache_system {
         std::map<uint8_t, Cache> caches;
         Cache llc; 
         System_stats stats; 
+        std::vector<double> percentage_array; 
+        std::vector<int> error_array; 
+        std::vector<int> failure_array; 
 
         uint64_t total_instr; 
         std::vector<std::vector<Instr> > instruction_map; 
@@ -164,31 +175,44 @@ class Cache_system {
                 std::vector<Instr> temp_vector; 
                 this->instruction_map.push_back(temp_vector); 
             }
-            print_parallel_stats(); 
+            
+            this->percentage_array.push_back(0.1); 
+            this->percentage_array.push_back(1); 
+            this->percentage_array.push_back(5); 
+            this->percentage_array.push_back(10); 
+            this->percentage_array.push_back(20); 
+            this->percentage_array.push_back(50); 
+            this->percentage_array.push_back(100); 
+
+            for(int i = 0; i < 7; i++) {
+                this->error_array.push_back(0); 
+                this->failure_array.push_back(0);
+            }
+            // print_parallel_stats(); 
         };
         
         void fake_read(unsigned long temp_coreID, uint64_t addr, FILE * trace = NULL) {
             Instr instr = Instr(true, temp_coreID, addr, 0); 
             instruction_map[temp_coreID].push_back(instr); 
             total_instr += 1; 
-            fprintf(trace, "total_instr: %li\n", total_instr); 
-            if(total_instr == 123482) {
-                print_parallel_stats(trace); 
-            }
+            // fprintf(trace, "total_instr: %li\n", total_instr); 
+            // if(total_instr == 304195) {
+            //     print_parallel_stats(trace); 
+            // }
         }
 
         void fake_write(unsigned long temp_coreID, uint64_t addr, uint64_t data, FILE *trace = NULL) {
             Instr instr = Instr(false, temp_coreID, addr, data); 
             instruction_map[temp_coreID].push_back(instr); 
             total_instr += 1; 
-            fprintf(trace, "total_instr: %li\n", total_instr); 
-            if(total_instr == 123482) {
-                print_parallel_stats(trace); 
-            }
+            // fprintf(trace, "total_instr: %li\n", total_instr); 
+            // if(total_instr == 304195) {
+            //     print_parallel_stats(trace); 
+            // }
         }
 
         void print_parallel_stats(FILE *trace = NULL) {
-            // printf("Total Instr: %li\n", total_instr); 
+            printf("Total Instr: %li\n", total_instr); 
             uint64_t finished_instr = total_instr; 
             uint64_t counter = 0; 
             std::vector<uint64_t> indexes; 
@@ -239,7 +263,8 @@ class Cache_system {
                 fprintf(trace, "~~~~~~~~~~~~~~~Printing System Stats~~~~~~~~~~~~~~~~~~~~~\n"); 
                 fprintf(trace, "Rollback: %li\n", stats.rollback); 
                 fprintf(trace, "Success: %li\n", stats.success); 
-                fprintf(trace, "Success Address Bound: %li\n", stats.success_addr_bound); 
+                fprintf(trace, "Same_line: %li\n", stats.same_line);
+                fprintf(trace, "Victimized State: %li\n", stats.success_addr_bound); 
                 // fprintf(trace, "Failed Address Bound: %li\n", stats.failed_addr_bound); 
                 fprintf(trace, "Speculated Cases: %li\n", stats.speculate_cases); 
                 // fprintf(trace, "Total Cases: %li\n", stats.total_cases);
@@ -251,14 +276,39 @@ class Cache_system {
         bool within_threshold(uint64_t valid, uint64_t invalid) {
             // printf("Valid Data: %li, invalid data: %li\n", valid, invalid); 
 
-
+            double percentDiff; 
             if(valid == 0 && invalid == 0) {
-                return true; 
+                percentDiff = 0; 
             }
+            else {
+                percentDiff = ((  abs((double)invalid - (double)valid) / (double)valid) * 100); 
+            }
+            
 
-            double percentDiff = ((  abs((double)invalid - (double)valid) / (double)valid) * 100); 
-            // printf("percent Diff %f\n", percentDiff); 
-            return percentDiff <= margin_of_error;  
+            if(percentDiff < 0.0) {
+                percentDiff = -1 * percentDiff; 
+            }
+            // printf("percent Diff %f, valid_data: %li, invalid_data: %li\n", percentDiff, valid, invalid); 
+
+            
+            for(unsigned int i = 0; i < error_array.size(); i++) {
+                if(percentDiff <= percentage_array[i]) {
+                    error_array[i] += 1; 
+                }
+                else{
+                    failure_array[i] += 1; 
+                }
+            }
+            if (percentDiff <= margin_of_error) {
+                success_count += 1; 
+                fprintf(output, "SUCCESS! Count: %d, VALID DATA: %li, INVALID DATA: %li, diff: %f\n", success_count, valid, invalid, percentDiff);
+            }
+            else {
+                rollback_count += 1; 
+                fprintf(output, "FAILED! Count: %d, VALID DATA: %li, INVALID DATA: %li, diff: %f\n", rollback_count, valid, invalid, percentDiff);
+            }
+            return true; 
+            // return percentDiff <= margin_of_error;  
         }; 
 
         Line_result lookup_line(uint64_t addr, uint8_t coreID, bool is_llc) {
@@ -380,6 +430,7 @@ class Cache_system {
                     // Change the value in the LLC 
                 else if (line->state == SHARED || line->state == INVALID || line->state == VICTIMIZED) {
                     stats.bus_transactions += 1; 
+                    fprintf(bus, "counter: %li\n", stats.bus_transactions); 
                     line->state = MODIFIED; 
                     for (uint8_t core_index = 0; core_index < num_cores; core_index++){
                         if (core_index != coreID){
@@ -458,6 +509,7 @@ class Cache_system {
                 // Check if it's in other cache and change state 
                 for (uint8_t core_index = 0; core_index < num_cores; core_index++){
                     stats.bus_transactions += 1; 
+                    fprintf(bus, "counter: %li\n", stats.bus_transactions); 
                     if (core_index != coreID){
                         // look up helper function to find the line that tag matches
                         Line_result other_line_info = lookup_line(addr, core_index, false); 
@@ -482,7 +534,7 @@ class Cache_system {
                                     // printf("~~~~~~~~~~~~~~~~~~~~cache_write: MISS SPECUALTED~~~~~~~~~~~~~~~~~\n"); 
                                     stats.speculate_cases += 1; 
                                     if(magic_memory.check_address(addr)) {
-                                        // printf("cache_write: other_line coreID: %d, state: %d\n", core_index, other_line->state); 
+                                        // printf("cache_write: other_line coreID: %d, state: %d\n", core_index, other_line->state);
                                         stats.success_addr_bound += 1; 
                                         other_line->state = VICTIMIZED;
                                         //  printf("cache_write: other_line coreID: %d, state: %d\n", core_index, other_line->state); 
@@ -578,7 +630,7 @@ class Cache_system {
                 if (line->state == VICTIMIZED) {
                     // printf("~~~~~~~~~~~~~~~~~~`cache_read: read in victimized~~~~~~~~~~~~~~~~~~~\n"); 
                     stats.bus_transactions += 1; 
-
+                    fprintf(bus, "counter: %li\n", stats.bus_transactions); 
                     uint64_t valid_data = 0; 
                     uint64_t invalid_data = line->data[block_index];
                     // printf("invalid_data: %li\n", invalid_data); 
@@ -613,24 +665,34 @@ class Cache_system {
                     // printf("valid_data: %li\n", valid_data); 
                     line->state = SHARED;
                     line->data[block_index] = valid_data;
-
+                    // printf("SPECULATION!!!!        Address: %lx\n", addr); 
                     // Checks whether the data is close enough 
-                    if(within_threshold(valid_data, invalid_data)) {
-                        stats.success += 1; 
-                        result.speculated = true; 
-                        result.valid_data = valid_data; 
-                        result.invalid_data = invalid_data; 
-                        return result;
-                    } 
+                    if(magic_memory.check_address(addr)) {
+                        if(within_threshold(valid_data, invalid_data)) {
+                            // printf("SUCESSSSSSS Address: %lx\n", addr); 
+                            stats.success += 1; 
+                            result.speculated = true; 
+                            result.valid_data = valid_data; 
+                            result.invalid_data = invalid_data; 
+                            return result;
+                        } 
+                        else {
+                            // printf("ROLLLBACKKKKK\n\n"); 
+                             
+                            stats.rollback += 1; 
+                            result.speculated = false; 
+                            result.valid_data = valid_data; 
+                            result.invalid_data = invalid_data; 
+                            return result;
+                        }
+                    }
                     else {
-                        printf("ROLLLBACKKKKK\n\n"); 
-                        stats.rollback += 1; 
+                        stats.same_line += 1; 
                         result.speculated = false; 
                         result.valid_data = valid_data; 
                         result.invalid_data = invalid_data; 
                         return result;
                     }
-                    
                 }
 
                 // If address is in the cache (I)
@@ -641,6 +703,7 @@ class Cache_system {
                     // return the flag valid data, invalid data
                 if (line->state == INVALID) {
                     stats.bus_transactions += 1; 
+                    fprintf(bus, "counter: %li\n", stats.bus_transactions); 
                     uint64_t valid_data = 0; 
                     uint64_t invalid_data = line->data[block_index];
                     for (uint8_t core_index = 0; core_index < num_cores; core_index++){
@@ -700,6 +763,7 @@ class Cache_system {
                 caches[coreID].cache_stats.num_read_misses += 1; 
                 caches[coreID].cache_stats.num_read_from_llc += 1; 
                 stats.bus_transactions += 1; 
+                fprintf(bus, "counter: %li\n", stats.bus_transactions); 
                 // Find the Value in the LLC 
                 Line LLC_line; 
                 std::vector<uint64_t> addr_info = llc.address_convert(addr); 
@@ -769,7 +833,7 @@ class Cache_system {
                                 other_line->state = SHARED; 
 
                                 if(other_line->data != LLC_line.data) {
-                                    printf("ERROR!!!!..... cache_read: other_line != LLC_line\n");
+                                    // printf("ERROR!!!!..... cache_read: other_line != LLC_line\n");
                                 }
                                 other_line->data = LLC_line.data; 
                             }
@@ -783,7 +847,7 @@ class Cache_system {
                 // printf("Cache Read: End Cache Read with cache (Miss)\n"); 
                 return result;
             }
-            printf("\nIn cache_system.h: Shouldn't get here in Cache Read\n"); 
+            // printf("\nIn cache_system.h: Shouldn't get here in Cache Read\n"); 
             return result; 
         };
 };
